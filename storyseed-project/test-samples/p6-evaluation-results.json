@@ -1,0 +1,176 @@
+[
+  {
+    "overall": 70,
+    "scores": {
+      "ideasVoice": 14,
+      "structure": 15,
+      "language": 13,
+      "revision": 14
+    },
+    "strengths": [
+      "Clear sequence of events (Last Sunday, Then, Finally) that makes the story easy to follow.",
+      "Direct speech is used well and makes Anna’s reactions lively.",
+      "Length and vocabulary are appropriate for Primary 6."
+    ],
+    "nextSteps": [
+      "Vary sentence beginnings and add one or two small details (place, time, or Anna’s feelings) to make the story more vivid.",
+      "Avoid repeating similar words (for example, 'mad and angry'); show emotion with one strong word or a short action.",
+      "Check a few grammar points: verb forms (e.g., 'it broke' vs 'it was broken') and article use ('a homework assignment')."
+    ],
+    "issues": [
+      {
+        "category": "grammar",
+        "fragment": "walking while she was playing on her mobile phone",
+        "advice": "Make the verb structure simpler: try 'walking while playing on her mobile phone' or 'walking and playing on her mobile phone.'"
+      },
+      {
+        "category": "grammar",
+        "fragment": "it was broken",
+        "advice": "Use the clearer verb form 'it broke' (active) or change to 'her phone was broken' if you want passive. 'It broke' is more direct here."
+      },
+      {
+        "category": "word_choice",
+        "fragment": "She got mad and angry",
+        "advice": "Avoid repetition: pick one word (e.g. 'angry') or show the feeling with an action: 'She felt angry and stormed home.'"
+      },
+      {
+        "category": "grammar",
+        "fragment": "one of the homework",
+        "advice": "Use 'a homework assignment' or 'one of her homework assignments' to make the noun phrase correct."
+      },
+      {
+        "category": "clarity",
+        "fragment": "Her mum punished her and used Anna’s money to buy her a new mobile phone",
+        "advice": "Clarify how the punishment worked: for example, 'Her mum punished her by making Anna pay for the new phone with her own money.'"
+      },
+      {
+        "category": "punctuation",
+        "fragment": "tried to turn on the television but it was out of order",
+        "advice": "Add a comma before 'but': 'tried to turn on the television, but it was out of order.' This joins the two clauses correctly."
+      }
+    ],
+    "sampleCode": "P6-01",
+    "title": "An Unlucky Day"
+  },
+  {
+    "overall": 75,
+    "scores": {
+      "ideasVoice": 16,
+      "structure": 15,
+      "language": 14,
+      "revision": 15
+    },
+    "strengths": [
+      "Clear main idea: your mother is presented as the writer’s hero.",
+      "Good use of a personal example (the story about finding your sister) to show care and concern.",
+      "Simple, direct sentences that make the essay easy to understand."
+    ],
+    "nextSteps": [
+      "Fix small grammar mistakes (like subject–verb agreement) and improve word order in one sentence.",
+      "Vary sentence beginnings and verbs so the writing does not repeat the same phrase many times.",
+      "Combine short sentences to make paragraphs flow better and reduce repetition (for example, join related duties into one sentence)."
+    ],
+    "issues": [
+      {
+        "category": "grammar",
+        "fragment": "Housewives needs to be attentive",
+        "advice": "Change 'needs' to 'need' to match the plural subject: 'Housewives need...'."
+      },
+      {
+        "category": "grammar",
+        "fragment": "didn’t go home after school when she got off the school bus",
+        "advice": "Change the order to 'didn't go home after she got off the school bus' or 'didn't go home after getting off the school bus' for clearer meaning."
+      },
+      {
+        "category": "clarity",
+        "fragment": "in the area around",
+        "advice": "Use a clearer phrase such as 'in the nearby area' or 'around the neighbourhood'."
+      },
+      {
+        "category": "word_choice",
+        "fragment": "solve the problems",
+        "advice": "Remove 'the' and write 'solve problems' or be specific: 'solve their problems'."
+      },
+      {
+        "category": "structure",
+        "fragment": "She needs to",
+        "advice": "Avoid repeating 'She needs to' at the start of many sentences; join some ideas (e.g. 'She also looks after my dad, cooks meals, and does housework') and use different verbs."
+      },
+      {
+        "category": "punctuation",
+        "fragment": "Thanks Mum a lot.",
+        "advice": "Use commas for direct address or write 'Thank you, Mum.' or 'Thanks, Mum.'"
+      },
+      {
+        "category": "clarity",
+        "fragment": "Mum was angry. I was angry about my naughty sister too.",
+        "advice": "Consider combining these short sentences to show the connection, for example: 'Mum was angry, and I was angry about my naughty sister too.'"
+      }
+    ],
+    "sampleCode": "P6-02",
+    "title": "My Hero"
+  },
+  {
+    "overall": 78,
+    "scores": {
+      "ideasVoice": 17,
+      "structure": 17,
+      "language": 14,
+      "revision": 14
+    },
+    "strengths": [
+      "Clear main idea: your aunt as a hero and teacher is easy to understand.",
+      "Good use of a short story (the student who pushed her) to support your point.",
+      "Paragraphs are organised: introduction, job details, qualities, an example, and a conclusion show a logical order and development of ideas."
+    ],
+    "nextSteps": [
+      "Vary repeating phrases (for example, avoid using \"loves her job very much\" several times).",
+      "Check verbs and prepositions (e.g. 'fell' vs 'felt', and 'back to school').",
+      "Use more precise verbs or expressions (for example, 'wears glasses' instead of 'is a woman with glasses'). Read your writing aloud to spot awkward sentences."
+    ],
+    "issues": [
+      {
+        "category": "word_choice",
+        "fragment": "super hero",
+        "advice": "Write 'superhero' as one word in this context."
+      },
+      {
+        "category": "word_choice",
+        "fragment": "make her become a knowledgeable person",
+        "advice": "Change to a shorter phrase such as 'help her become knowledgeable' or 'make her knowledgeable' to sound more natural."
+      },
+      {
+        "category": "word_choice",
+        "fragment": "is a woman with glasses",
+        "advice": "Use a clearer verb: 'She wears glasses.'"
+      },
+      {
+        "category": "word_choice",
+        "fragment": "teach them knowledge",
+        "advice": "Use 'teach them' or 'teach them new things' instead of 'teach them knowledge.'"
+      },
+      {
+        "category": "clarity",
+        "fragment": "she still loves her job very much",
+        "advice": "Avoid repeating the same phrase. Use different expressions (e.g. 'she still enjoys teaching' or 'she continues to love her work')."
+      },
+      {
+        "category": "grammar",
+        "fragment": "she will talk to them politely",
+        "advice": "Keep verb tenses consistent. In this present-time description use 'she talks to them politely' or 'she always speaks to them politely.'"
+      },
+      {
+        "category": "grammar",
+        "fragment": "felt down on the floor",
+        "advice": "Use 'fell down' or 'fell to the floor' (not 'felt down')."
+      },
+      {
+        "category": "grammar",
+        "fragment": "went back school",
+        "advice": "Include the preposition: 'went back to school.'"
+      }
+    ],
+    "sampleCode": "P6-03",
+    "title": "My Hero"
+  }
+]

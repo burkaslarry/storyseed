@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  color: #24332f;
+  background: #f7f8f4;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --radius: 1rem;
+  --background: oklch(0.98 0.008 120);
+  --foreground: oklch(0.25 0.035 160);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.25 0.035 160);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0.035 160);
+  --primary: oklch(0.29 0.07 160);
+  --primary-foreground: oklch(0.98 0.01 100);
+  --secondary: oklch(0.93 0.035 150);
+  --secondary-foreground: oklch(0.29 0.07 160);
+  --muted: oklch(0.95 0.01 150);
+  --muted-foreground: oklch(0.55 0.03 160);
+  --accent: oklch(0.93 0.04 90);
+  --accent-foreground: oklch(0.3 0.06 90);
+  --border: oklch(0.91 0.025 150);
+  --input: oklch(0.91 0.025 150);
+  --ring: oklch(0.68 0.08 150);
+}
+
+* { border-color: var(--border); }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #f7f8f4; }
+button, textarea { font: inherit; }
+button { cursor: pointer; }
+.eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #8b9a93; }
+
+@media (prefers-reduced-motion: no-preference) {
+  button, textarea { transition: transform 160ms cubic-bezier(.23,1,.32,1), border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
+  button:active { transform: scale(.98); }
+}
