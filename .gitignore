@@ -5,3 +5,6 @@
 .DS_Store
 /build
 /captures
+.env
+.env.local
+**/node_modules/

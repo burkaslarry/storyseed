@@ -1,0 +1,14 @@
+StorySeed local environment template
+
+Copy these names into a local .env file and fill in your own values.
+
+NODE_ENV=development
+VITE_APP_ID=
+JWT_SECRET=replace-with-a-long-random-local-secret
+DATABASE_URL=mysql://user:password@127.0.0.1:3306/storyseed
+OAUTH_SERVER_URL=
+OWNER_OPEN_ID=
+BUILT_IN_FORGE_API_URL=
+BUILT_IN_FORGE_API_KEY=
+
+Do not commit .env or share API keys and database passwords.

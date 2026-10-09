@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IXP-Q027 — Section C Pricing Package</title>
+  <style>
+    :root {
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #d6d3d1;
+      --head: #f5f5f4;
+      --total: #faf7f2;
+      --note-bg: #fffbeb;
+      --note-line: #f59e0b;
+      --accent: #44403c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #e7e5e4;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 920px;
+      margin: 24px auto;
+      padding: 48px 56px 64px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .note {
+      margin: 0 0 28px;
+      padding: 14px 16px 14px 18px;
+      border-left: 3px solid var(--note-line);
+      background: var(--note-bg);
+      color: var(--muted);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      font-size: 13.5px;
+    }
+
+    .note p { margin: 0 0 8px; }
+    .note p:last-child { margin-bottom: 0; }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+
+    h2 {
+      margin: 32px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    p { margin: 0 0 12px; }
+
+    ul {
+      margin: 0 0 14px;
+      padding-left: 1.25em;
+    }
+
+    li { margin: 0 0 4px; }
+
+    code {
+      font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    table {
+      width: 100%;
+      margin: 8px 0 16px;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      line-height: 1.4;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: var(--head);
+      font-weight: 600;
+      font-size: 12.5px;
+      letter-spacing: 0.01em;
+    }
+
+    .num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .tick, th.tick { text-align: center; white-space: nowrap; width: 9.5em; }
+
+    tr.total td {
+      background: var(--total);
+      font-weight: 700;
+    }
+
+    .box {
+      display: inline-block;
+      width: 0.9em;
+      height: 0.9em;
+      border: 1.5px solid var(--accent);
+      vertical-align: -0.1em;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      h2, table, tr { break-inside: avoid; }
+      .note { break-inside: avoid; }
+    }
+
+    @media (max-width: 720px) {
+      .page { margin: 0; padding: 24px 16px 40px; }
+      table { font-size: 12.5px; }
+      th, td { padding: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <article class="page">
+    <aside class="note">
+      <p>Replace the current Section C in IXP-Q027. Amounts are HKD. This redraft prices completion of the StorySeed demo the School has already seen. It does not price a new product.</p>
+      <p>One alignment with Section D is required if this text is adopted: delete the sentence that gives twelve months of warranty and hosting inside the development fee. Hosting is monthly from go-live. Defect support included in C-1 lasts eight weeks.</p>
+    </aside>
+
+    <h1>Section C — Pricing Package</h1>
+
+    <p>All amounts are quoted and payable in Hong Kong dollars.</p>
+
+    <p>The School receives a hosted, non-exclusive licence to the StorySeed service described in Section B for the subscription period. Platform source code remains InnovateXP Limited’s Platform IP.</p>
+
+    <p>This quotation has three pricing categories:</p>
+    <ul>
+      <li><strong>C-1</strong> One-off production completion and go-live</li>
+      <li><strong>C-2</strong> Monthly hosting, and an optional support plan</li>
+      <li><strong>C-3</strong> Ad hoc on-site and remote support outside C-2</li>
+    </ul>
+
+    <p>The following are outside C-1, C-2 and C-3 unless a separate written quotation is accepted: handwriting OCR, on-premise or custom model training, EPUB or flipbook conversion, illustration and print buying, extra classes beyond the agreed P5 and P6 groups, single sign-on to the School’s learning system, and features not listed in Section B.</p>
+
+    <h2>Section C-1 — Production completion and go-live</h2>
+
+    <p>C-1 completes, brands and deploys the demonstrated StorySeed application for the School’s P5 and P6 classes. The man-day rate is HKD 2,000, the same rate as Section C-3.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Scope of work</th>
+          <th class="num">Man-days</th>
+          <th class="num">Amount (HKD)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1. Deployment</td>
+          <td>One always-on application service in a Singapore region, managed MySQL, object storage for anthology PDFs, HTTPS, environment secrets, and the first database migration. Teacher and student sign-in use school-issued usernames and passwords.</td>
+          <td class="num">4</td>
+          <td class="num">8,000</td>
+        </tr>
+        <tr>
+          <td>2. Data model</td>
+          <td>Foreign keys; school codes unique inside a class and year; seed rows for the two classes and 15 lessons; one writing per student per lesson; <code>lessonProgress</code> for saved lesson text and checklists; anthology fields for status, category, editor note, confirmation, level and a body snapshot.</td>
+          <td class="num">3</td>
+          <td class="num">6,000</td>
+        </tr>
+        <tr>
+          <td>3. Student portal</td>
+          <td>Persist lesson saves across refresh; Chinese character count; show a rubric score only after a real evaluation; five-stage version history; issue cards, reflection and the limited AI coach already demonstrated.</td>
+          <td class="num">4</td>
+          <td class="num">8,000</td>
+        </tr>
+        <tr>
+          <td>4. Teacher portal</td>
+          <td>Live class overview from the database; proofreading review queue; anthology desk reading and writing <code>anthologyItems</code>; create a class, then CSV account import. Sample counts and the five demo pieces are removed from the live school site.</td>
+          <td class="num">4</td>
+          <td class="num">8,000</td>
+        </tr>
+        <tr>
+          <td>5. Admin and care</td>
+          <td>Admin control of teacher and student menu access; scheduled database backup; one monthly summary email to a named teacher address.</td>
+          <td class="num">4</td>
+          <td class="num">8,000</td>
+        </tr>
+        <tr>
+          <td>6. Go-live</td>
+          <td>School acceptance test on the production URL, and handover of admin, backup and restore notes.</td>
+          <td class="num">2</td>
+          <td class="num">4,000</td>
+        </tr>
+        <tr class="total">
+          <td>C-1 total</td>
+          <td></td>
+          <td class="num">21</td>
+          <td class="num">42,000</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>C-1 includes eight weeks of hypercare after the go-live date. Hypercare covers defect fixes and security patches in the delivered scope. It does not include new screens, extra classes, data entry, or training beyond one remote handover session of up to two hours.</p>
+
+    <p>Handwriting OCR is not included. If the School requires students to submit photographed handwritten work, that work will be quoted separately after a sample set is reviewed.</p>
+
+    <h2>Section C-2 — Hosting and optional support</h2>
+
+    <p>Hosting starts on the go-live date and is independent of the support plan. Tick one support row. Response time means acknowledgement and triage, not a guaranteed fix. Support hours are Monday to Friday, 09:00–18:00 Hong Kong time, excluding public holidays.</p>
+
+    <p>A support plan, if ticked, starts the day after the eight-week hypercare period. The School may ask for it to start earlier. Major new features, extra classes, third-party fees above the allowances below, and work outside Section B are quoted separately.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>What is included</th>
+          <th class="num">Amount (HKD)</th>
+          <th class="tick">Tick</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Hosting</td>
+          <td>Always-on application service, MySQL, and file storage in a Singapore region. LLM usage up to HKD 600 per month. Provider cost above that allowance is billed at cost after written notice to the School.</td>
+          <td class="num">900 per month</td>
+          <td class="tick">Required from go-live</td>
+        </tr>
+        <tr>
+          <td>Support — Basic</td>
+          <td>Uptime and error monitoring; security patching; monthly backup restore check; LLM key and storage checks; up to 2 hours of minor defect fixes per month; email support during support hours.</td>
+          <td class="num">1,800 per month</td>
+          <td class="tick"><span class="box" aria-hidden="true"></span></td>
+        </tr>
+        <tr>
+          <td>Support — Premium</td>
+          <td>Everything in Basic, plus up to 4 hours per month of agreed small changes, and one half-day on-site or remote visit per school term.</td>
+          <td class="num">3,200 per month</td>
+          <td class="tick"><span class="box" aria-hidden="true"></span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Annual prepayment of a support plan covers 12 months and is charged at 85% of the monthly support total. Hosting is not discounted, because it follows provider cost.</p>
+
+    <p>If no support row is ticked, post-hypercare help is available only under Section C-3.</p>
+
+    <h2>Section C-3 — Ad hoc on-site and remote support</h2>
+
+    <p>For a School that does not take a C-2 support plan, or that needs time beyond that plan. Purchased in days or weeks. A week is five working days and is charged at 70% of the daily rate. Hours are Monday to Friday, 09:00–18:00 Hong Kong time, excluding public holidays. Unused days expire six months after payment.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>What is included</th>
+          <th class="num">Amount (HKD)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Daily</td>
+          <td>One day (8 hours) on site or remote: defect triage, configuration, small changes, data fixes, user training, or a health check.</td>
+          <td class="num">2,000 per day</td>
+        </tr>
+        <tr>
+          <td>Weekly</td>
+          <td>Five working days.</td>
+          <td class="num">7,000 per week</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Payment, for use with Section D</h2>
+
+    <p>Development fee (C-1): 50% on commencement, 50% on written acceptance of the production site.</p>
+
+    <p>Hosting (C-2): monthly in advance from the go-live date, payable by the 7th of each month.</p>
+
+    <p>Support plan (C-2): monthly in advance from the plan start date, or annually in advance if the School chooses the annual rate.</p>
+
+    <p>Ad hoc support (C-3): payable in full on booking. For a booking longer than three days, 50% on booking and 50% on completion.</p>
+  </article>
+</body>
+</html>
