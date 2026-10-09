@@ -39,6 +39,7 @@ export const users = pgTable("storyseed_users", {
   openId: text("open_id").notNull().unique(),
   name: text("name"),
   email: text("email"),
+  passwordHash: text("password_hash"),
   loginMethod: text("login_method"),
   role: text("role").default("student").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

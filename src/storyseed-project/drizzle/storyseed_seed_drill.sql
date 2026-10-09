@@ -4,12 +4,17 @@ INSERT INTO storyseed_classes (code, level, title)
 VALUES ('6F', 'P6', 'P6 StorySeed Demo')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO storyseed_users (open_id, name, login_method, role)
+INSERT INTO storyseed_users (open_id, name, email, password_hash, login_method, role)
 VALUES
-  ('student_student-p6-drill', 'Student P6-DRILL', 'school-code', 'student'),
-  ('teacher_drill@storyseed.local', 'Teacher Drill', 'oauth', 'teacher'),
-  ('trash_drill_disposable', 'Trash Drill', 'school-code', 'student')
-ON CONFLICT (open_id) DO UPDATE SET role = EXCLUDED.role, name = EXCLUDED.name;
+  ('student_student-p6-drill', 'Student P6-DRILL', NULL, NULL, 'school-code', 'student'),
+  ('teacher_teacher-drill@chungsing.edu.hk', 'Drill Teacher', 'teacher-drill@chungsing.edu.hk', '983b8374f2c5ce223c727b35aa3aea06', 'password', 'teacher'),
+  ('trash_drill_disposable', 'Trash Drill', NULL, NULL, 'school-code', 'student')
+ON CONFLICT (open_id) DO UPDATE SET
+  role = EXCLUDED.role,
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  password_hash = EXCLUDED.password_hash,
+  login_method = EXCLUDED.login_method;
 
 INSERT INTO storyseed_students (user_id, school_code, class_id, level)
 SELECT u.id, 'P6-DRILL', c.id, 'P6'::storyseed_level_code
@@ -20,7 +25,7 @@ ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO storyseed_student_accounts (class_id, user_id, school_code, username, initial_code_hash, must_change_code, active)
 SELECT c.id, u.id, 'P6-DRILL', 'student-p6-drill',
-  'f62a0fcccc330dab3d27af8c2a66903b:241e2349355a55fec9d1c32c2b759fc29debb54df1d31cba7109a923e4d2d1d2',
+  'cf8d4f403d288a1184fd1df9e32653d8',
   false, true
 FROM storyseed_users u
 JOIN storyseed_classes c ON c.code = '6F'
@@ -28,7 +33,7 @@ WHERE u.open_id = 'student_student-p6-drill'
 ON CONFLICT (username) DO UPDATE SET user_id = EXCLUDED.user_id, initial_code_hash = EXCLUDED.initial_code_hash, must_change_code = false, active = true;
 
 INSERT INTO storyseed_teachers (user_id, display_name)
-SELECT id, 'Drill Teacher' FROM storyseed_users WHERE open_id = 'teacher_drill@storyseed.local'
+SELECT id, 'Drill Teacher' FROM storyseed_users WHERE open_id = 'teacher_teacher-drill@chungsing.edu.hk'
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO storyseed_trash_accounts (username, original_user_id, reason)

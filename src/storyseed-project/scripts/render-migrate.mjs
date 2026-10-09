@@ -18,7 +18,11 @@ function runSqlFile(relativePath) {
 const mode = process.argv[2] ?? "migrate";
 if (mode === "seed") {
   runSqlFile("drizzle/storyseed_seed_drill.sql");
+} else if (mode === "v3") {
+  runSqlFile("drizzle/storyseed_postgres_v3_password_auth.sql");
+  runSqlFile("drizzle/storyseed_seed_drill.sql");
 } else {
   runSqlFile("drizzle/storyseed_postgres_v2.sql");
+  runSqlFile("drizzle/storyseed_postgres_v3_password_auth.sql");
   runSqlFile("drizzle/storyseed_seed_drill.sql");
 }

@@ -85,6 +85,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       openId: user.openId,
       name: user.name ?? null,
       email: user.email ?? null,
+      passwordHash: user.passwordHash ?? null,
       loginMethod: user.loginMethod ?? null,
       role,
       lastSignedIn: user.lastSignedIn ?? new Date(),
@@ -94,6 +95,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       set: {
         name: user.name ?? null,
         email: user.email ?? null,
+        passwordHash: user.passwordHash ?? null,
         loginMethod: user.loginMethod ?? null,
         role,
         lastSignedIn: user.lastSignedIn ?? new Date(),
@@ -106,6 +108,18 @@ export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  return result[0];
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const normalized = email.trim().toLowerCase();
+  const result = await db
+    .select()
+    .from(users)
+    .where(sql`lower(trim(${users.email})) = ${normalized}`)
+    .limit(1);
   return result[0];
 }
 

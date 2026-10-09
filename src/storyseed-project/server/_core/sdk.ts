@@ -289,6 +289,11 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
+    // Password / school-code sessions must already exist in the database.
+    if (!user && (sessionUserId.startsWith("student_") || sessionUserId.startsWith("teacher_"))) {
+      throw ForbiddenError("User not found");
+    }
+
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {

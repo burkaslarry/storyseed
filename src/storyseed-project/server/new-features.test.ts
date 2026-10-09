@@ -16,14 +16,15 @@ describe("student account provisioning", () => {
     expect(() => parseStudentCsv("schoolCode,classCode\nP6-01,5A", "6F")).toThrow("班別");
   });
 
-  it("creates non-empty one-time codes and salted hashes", () => {
+  it("creates non-empty one-time codes and MD5 hashes", () => {
     const code = generateInitialCode();
     const hash = hashInitialCode(code);
     expect(code).toHaveLength(10);
-    expect(hash).toContain(":");
+    expect(hash).toMatch(/^[a-f0-9]{32}$/);
     expect(hash).not.toContain(code);
     expect(verifyInitialCode(code, hash)).toBe(true);
     expect(verifyInitialCode(`${code}X`, hash)).toBe(false);
+    expect(verifyInitialCode("DRILLCODE01", "cf8d4f403d288a1184fd1df9e32653d8")).toBe(true);
     expect(() => assertStudentCodeChanged(1)).toThrow("首次登入改碼");
     expect(() => assertStudentCodeChanged(0)).not.toThrow();
   });

@@ -29,9 +29,10 @@ import { systemRouter } from "./_core/systemRouter";
 import { invokeLLM } from "./_core/llm";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { addFeedback, archiveTrashAccount, bindClassMember, createAnthologyExport, createImportBatch, createStudentAccount, createWriting, getAnthologyPdfItems, getClassByCode, getClassMember, getClassOverview, getStudentAccountByUsername, getStudentWritingForUser, getWritingEvaluation, listAnthologyDeskItems, listAnthologyItems, listAssignments, listClasses, listFeedback, listJourneyPieces, listWritingVersions, saveJourneyPiece, saveWritingEvaluation, saveWritingVersion, selectAnthologyItem, updateAnthologyItem } from "./db";
+import { addFeedback, archiveTrashAccount, bindClassMember, createAnthologyExport, createImportBatch, createStudentAccount, createWriting, getAnthologyPdfItems, getClassByCode, getClassMember, getClassOverview, getStudentAccountByUsername, getStudentWritingForUser, getUserByEmail, getWritingEvaluation, listAnthologyDeskItems, listAnthologyItems, listAssignments, listClasses, listFeedback, listJourneyPieces, listWritingVersions, saveJourneyPiece, saveWritingEvaluation, saveWritingVersion, selectAnthologyItem, updateAnthologyItem } from "./db";
 import { buildAnthologyPdf } from "./anthologyPdf";
-import { assertStudentCodeChanged, hashInitialCode, parseStudentCsv, generateInitialCode, verifyInitialCode } from "./accountProvisioning";
+import { assertStudentCodeChanged, hashInitialCode, normalizeTeacherEmail, parseStudentCsv, generateInitialCode, verifyInitialCode, verifyPasswordMd5 } from "./accountProvisioning";
+import { setSessionCookie } from "./sessionAuth";
 import { storagePut } from "./storage";
 import { normalizeEvaluation, parseEvaluationContent } from "./writingEvaluation";
 
@@ -75,7 +76,54 @@ export const appRouter = router({
   }),
   teaching: router({ feedback: protectedProcedure.input(z.object({ writingId: z.number(), body: z.string().min(1).max(2000) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); return addFeedback({ writingId: input.writingId, authorId: ctx.user.id, body: input.body }); }), listFeedback: protectedProcedure.input(z.object({ writingId: z.number() })).query(async ({ ctx, input }) => { await requireRole(ctx, ['student', 'teacher', 'tutor', 'admin']); return listFeedback(input.writingId); }) }),
   anthology: router({ list: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); return listAnthologyItems(); }), exportContent: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await listAnthologyItems(); return items.map((item, index) => ({ order: item.displayOrder ?? index + 1, authorCode: item.authorCode, title: item.publicationTitle ?? 'Untitled student work', approved: Boolean(item.approved) })); }), exportPdf: protectedProcedure.mutation(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await getAnthologyPdfItems(); const pdf = await buildAnthologyPdf(items); const stored = await storagePut(`anthology/chung-sing-${Date.now()}.pdf`, pdf, 'application/pdf'); await createAnthologyExport({ createdBy: ctx.user.id, format: 'pdf', storageKey: stored.key, itemCount: items.length }); return { url: stored.url, count: items.length }; }), select: protectedProcedure.input(z.object({ writingId: z.number(), authorCode: z.string().max(32), publicationTitle: z.string().max(180).optional(), displayOrder: z.number().optional(), approved: z.number().min(0).max(1) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['teacher', 'admin']); return selectAnthologyItem(input); }) }),
-  accounts: router({ bulkImport: protectedProcedure.input(z.object({ classCode: z.string().max(32), csv: z.string().max(12000) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const schoolClass = await getClassByCode(input.classCode); if (!schoolClass) throw new Error('找不到指定班別。'); const rows = parseStudentCsv(input.csv, input.classCode); const batchId = await createImportBatch({ importedBy: ctx.user.id, classId: schoolClass.id, rowCount: rows.length, status: 'completed' }); const credentials = []; for (const row of rows) { const initialCode = generateInitialCode(); await createStudentAccount({ classId: schoolClass.id, schoolCode: row.schoolCode, username: row.username, initialCodeHash: hashInitialCode(initialCode), mustChangeCode: true, active: true }); credentials.push({ schoolCode: row.schoolCode, username: row.username, initialCode }); } return { batchId, credentials, warning: '初始碼只會在這次回應顯示一次，請教師下載並安全交給學生。' }; }), studentLogin: publicProcedure.input(z.object({ username: z.string().min(3).max(64), code: z.string().min(6).max(32) })).mutation(async ({ ctx, input }) => { const account = await (await import('./db')).getStudentAccountByUsername(input.username); if (!account || !account.active || !verifyInitialCode(input.code, account.initialCodeHash)) throw new Error('帳號或初始碼不正確。'); const user = await (await import('./db')).createOrGetStudentUser(account.username); if (!user) throw new Error('無法建立學生帳戶。'); const member = await getClassMember(user.id); if (!member) await bindClassMember({ classId: account.classId, userId: user.id, schoolCode: account.schoolCode, role: 'student' }); const token = await sdk.signSession({ openId: user.openId, appId: ENV.appId, name: `Student ${account.schoolCode}` }); ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 12 }); return { success: true, mustChangeCode: Boolean(account.mustChangeCode) }; }), changeCode: protectedProcedure.input(z.object({ newCode: z.string().min(8).max(32) })).mutation(async ({ ctx, input }) => { if (!ctx.user.openId?.startsWith('student_')) throw new Error('只有學生帳號可以使用這項功能。'); const username = ctx.user.openId.slice('student_'.length); const account = await (await import('./db')).getStudentAccountByUsername(username); if (!account) throw new Error('找不到學生帳戶。'); await (await import('./db')).updateStudentAccountCode(account.id, hashInitialCode(input.newCode)); return { success: true }; }) }),
+  accounts: router({
+    bulkImport: protectedProcedure.input(z.object({ classCode: z.string().max(32), csv: z.string().max(12000) })).mutation(async ({ ctx, input }) => {
+      await requireRole(ctx, ['teacher', 'tutor', 'admin']);
+      const schoolClass = await getClassByCode(input.classCode);
+      if (!schoolClass) throw new Error('找不到指定班別。');
+      const rows = parseStudentCsv(input.csv, input.classCode);
+      const batchId = await createImportBatch({ importedBy: ctx.user.id, classId: schoolClass.id, rowCount: rows.length, status: 'completed' });
+      const credentials = [];
+      for (const row of rows) {
+        const initialCode = generateInitialCode();
+        await createStudentAccount({ classId: schoolClass.id, schoolCode: row.schoolCode, username: row.username, initialCodeHash: hashInitialCode(initialCode), mustChangeCode: true, active: true });
+        credentials.push({ schoolCode: row.schoolCode, username: row.username, initialCode });
+      }
+      return { batchId, credentials, warning: '初始碼只會在這次回應顯示一次，請教師下載並安全交給學生。' };
+    }),
+    teacherLogin: publicProcedure
+      .input(z.object({ email: z.string().email().max(120), password: z.string().min(4).max(64) }))
+      .mutation(async ({ ctx, input }) => {
+        const email = normalizeTeacherEmail(input.email);
+        const user = await getUserByEmail(email);
+        if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
+          throw new Error('電郵或密碼不正確。');
+        }
+        if (!['teacher', 'tutor', 'admin'].includes(user.role)) {
+          throw new Error('此帳戶不是教師權限。');
+        }
+        await setSessionCookie(ctx.req, ctx.res, { openId: user.openId, name: user.name ?? 'Teacher' });
+        return { success: true as const };
+      }),
+    studentLogin: publicProcedure.input(z.object({ username: z.string().min(3).max(64), code: z.string().min(6).max(32) })).mutation(async ({ ctx, input }) => {
+      const account = await (await import('./db')).getStudentAccountByUsername(input.username);
+      if (!account || !account.active || !verifyInitialCode(input.code, account.initialCodeHash)) throw new Error('帳號或初始碼不正確。');
+      const user = await (await import('./db')).createOrGetStudentUser(account.username);
+      if (!user) throw new Error('無法建立學生帳戶。');
+      const member = await getClassMember(user.id);
+      if (!member) await bindClassMember({ classId: account.classId, userId: user.id, schoolCode: account.schoolCode, role: 'student' });
+      await setSessionCookie(ctx.req, ctx.res, { openId: user.openId, name: `Student ${account.schoolCode}` });
+      return { success: true, mustChangeCode: Boolean(account.mustChangeCode) };
+    }),
+    changeCode: protectedProcedure.input(z.object({ newCode: z.string().min(8).max(32) })).mutation(async ({ ctx, input }) => {
+      if (!ctx.user.openId?.startsWith('student_')) throw new Error('只有學生帳號可以使用這項功能。');
+      const username = ctx.user.openId.slice('student_'.length);
+      const account = await (await import('./db')).getStudentAccountByUsername(username);
+      if (!account) throw new Error('找不到學生帳戶。');
+      await (await import('./db')).updateStudentAccountCode(account.id, hashInitialCode(input.newCode));
+      return { success: true };
+    }),
+  }),
   studio: router({
     overview: protectedProcedure.query(async ({ ctx }) => {
       await requireRole(ctx, ['teacher', 'tutor', 'admin']);
