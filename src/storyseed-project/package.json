@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development node --watch --import tsx server/_core/index.ts",
-    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server/index.js --log-level=warning && esbuild server/vercel.ts --platform=node --packages=external --bundle --format=esm --outfile=api/index.js --log-level=warning",
+    "build": "esbuild server/vercel.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server/vercel-handler.js --log-level=warning && vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server/index.js --log-level=warning",
     "start": "cross-env NODE_ENV=production node dist/server/index.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",

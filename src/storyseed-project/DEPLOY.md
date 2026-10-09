@@ -13,7 +13,7 @@ All paths in `vercel.json` are relative to **this folder** (not the git repo roo
 ## Build
 
 - **Install:** `pnpm install`
-- **Build:** `pnpm build` → static site in `dist/public`, API bundle in `api/index.js`
+- **Build:** `pnpm build` → handler in `dist/server/vercel-handler.js`, thin `api/index.js` re-exports it
 - **Output:** `dist/public` only (no server JS at site root)
 
 ## Environment
