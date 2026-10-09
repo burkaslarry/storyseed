@@ -18,6 +18,15 @@ JOIN storyseed_classes c ON c.code = '6F'
 WHERE u.open_id = 'student_student-p6-drill'
 ON CONFLICT (user_id) DO NOTHING;
 
+INSERT INTO storyseed_student_accounts (class_id, user_id, school_code, username, initial_code_hash, must_change_code, active)
+SELECT c.id, u.id, 'P6-DRILL', 'student-p6-drill',
+  'f62a0fcccc330dab3d27af8c2a66903b:241e2349355a55fec9d1c32c2b759fc29debb54df1d31cba7109a923e4d2d1d2',
+  false, true
+FROM storyseed_users u
+JOIN storyseed_classes c ON c.code = '6F'
+WHERE u.open_id = 'student_student-p6-drill'
+ON CONFLICT (username) DO UPDATE SET user_id = EXCLUDED.user_id, initial_code_hash = EXCLUDED.initial_code_hash, must_change_code = false, active = true;
+
 INSERT INTO storyseed_teachers (user_id, display_name)
 SELECT id, 'Drill Teacher' FROM storyseed_users WHERE open_id = 'teacher_drill@storyseed.local'
 ON CONFLICT (user_id) DO NOTHING;
