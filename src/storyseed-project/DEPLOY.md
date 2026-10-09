@@ -20,7 +20,15 @@ All paths in `vercel.json` are relative to **this folder** (not the git repo roo
 
 Set on Vercel (Production + Preview): `DATABASE_URL`, `PGSSL=true`, `PGSSLMODE=require`, **`JWT_SECRET`** (required for teacher/student login cookies), plus auth/LLM vars from `.env.example`.
 
-Drill teacher: `teacher-drill@chungsing.edu.hk` / `DrillTeacher01` · student: `student-p6-drill` / `DRILLCODE01` (passwords stored as MD5 in Postgres).
+Drill accounts (MD5 in Postgres):
+
+| Role | Login URL | Email / username | Password / code |
+|------|-----------|------------------|-----------------|
+| Teacher | `/teacher-login` | `teacher-drill@chungsing.edu.hk` | `DrillTeacher01` |
+| Admin | `/admin-login` | `admin@chungsing.edu.hk` | `AdminStorySeed01` |
+| Student | `/student-login` | `student-p6-drill` | `DRILLCODE01` |
+
+Teacher: **帳號** (single + CSV import/export), **寫作任務** (create + publish to class). Admin: `/admin` student list + teacher CRUD.
 
 ## Database
 

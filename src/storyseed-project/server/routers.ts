@@ -35,6 +35,7 @@ import { assertStudentCodeChanged, hashInitialCode, normalizeTeacherEmail, parse
 import { setSessionCookie } from "./sessionAuth";
 import { storagePut } from "./storage";
 import { normalizeEvaluation, parseEvaluationContent } from "./writingEvaluation";
+import { createManageRouter } from "./manageRouter";
 
 const supportMode = z.enum(["idea", "language", "structure", "proofread"]);
 export function sanitizeStudentText(text: string) { return text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[電郵已隱去]").replace(/(?:\+?852[ -]?)?\d{4}[ -]?\d{4}/g, "[電話已隱去]"); }
@@ -110,10 +111,27 @@ export const appRouter = router({
         if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
           throw new Error('電郵或密碼不正確。');
         }
-        if (!['teacher', 'tutor', 'admin'].includes(user.role)) {
+        if (user.role === 'admin') {
+          throw new Error('管理員請使用 /admin-login 登入。');
+        }
+        if (!['teacher', 'tutor'].includes(user.role)) {
           throw new Error('此帳戶不是教師權限。');
         }
         await setSessionCookie(ctx.req, ctx.res, { openId: user.openId, name: user.name ?? 'Teacher' });
+        return { success: true as const };
+      }),
+    adminLogin: publicProcedure
+      .input(z.object({ email: z.string().email().max(120), password: z.string().min(4).max(64) }))
+      .mutation(async ({ ctx, input }) => {
+        const email = normalizeTeacherEmail(input.email);
+        const user = await getUserByEmail(email);
+        if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
+          throw new Error('電郵或密碼不正確。');
+        }
+        if (user.role !== 'admin') {
+          throw new Error('此帳戶不是管理員權限。');
+        }
+        await setSessionCookie(ctx.req, ctx.res, { openId: user.openId, name: user.name ?? 'Admin' });
         return { success: true as const };
       }),
     studentLogin: publicProcedure.input(z.object({ username: z.string().min(3).max(64), code: z.string().min(6).max(32) })).mutation(async ({ ctx, input }) => {
@@ -186,6 +204,7 @@ export const appRouter = router({
       return getStudentWritingForUser(ctx.user.id, input.writingId);
     }),
   }),
+  manage: createManageRouter(requireRole),
   accountsArchive: router({
     trash: protectedProcedure
       .input(z.object({ username: z.string().min(3).max(64), reason: z.string().max(500).optional() }))

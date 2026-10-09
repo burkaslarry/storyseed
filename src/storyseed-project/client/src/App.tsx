@@ -16,6 +16,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import TeacherLogin from "./pages/TeacherLogin";
 import StudentLogin from "./pages/StudentLogin";
+import AdminLogin from "./pages/AdminLogin";
+import AdminConsole from "./pages/AdminConsole";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -23,7 +25,9 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/teacher-login"} component={TeacherLogin} />
+      <Route path={"/admin-login"} component={AdminLogin} />
       <Route path={"/student-login"} component={StudentLogin} />
+      <Route path={"/admin"} component={AdminConsole} />
       <Route path={"/teacher"} component={Home} />
       <Route path={"/student"} component={Home} />
       <Route path={"/404"} component={NotFound} />

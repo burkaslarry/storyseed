@@ -17,6 +17,7 @@ INSERT INTO storyseed_users (open_id, name, email, password_hash, login_method, 
 VALUES
   ('student_student-p6-drill', 'Student P6-DRILL', NULL, NULL, 'school-code', 'student'),
   ('teacher_teacher-drill@chungsing.edu.hk', 'Drill Teacher', 'teacher-drill@chungsing.edu.hk', '983b8374f2c5ce223c727b35aa3aea06', 'password', 'teacher'),
+  ('admin_admin@chungsing.edu.hk', 'StorySeed Admin', 'admin@chungsing.edu.hk', '9c40620c6c5251ad21a104616cf4134c', 'password', 'admin'),
   ('trash_drill_disposable', 'Trash Drill', NULL, NULL, 'school-code', 'student')
 ON CONFLICT (open_id) DO UPDATE SET
   role = EXCLUDED.role,

@@ -102,6 +102,26 @@ export const classMembers = pgTable(
   (t) => [uniqueIndex("storyseed_class_members_class_user").on(t.classId, t.userId)]
 );
 
+export const classWritingAssignments = pgTable(
+  "storyseed_class_assignments",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => classes.id),
+    createdBy: integer("created_by")
+      .notNull()
+      .references(() => users.id),
+    title: text("title").notNull(),
+    instructions: text("instructions").default("").notNull(),
+    level: levelCode("level").notNull(),
+    lessonNo: integer("lesson_no").notNull(),
+    status: text("status").default("draft").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("storyseed_class_assignments_class_lesson").on(t.classId, t.lessonNo)]
+);
+
 export const assignments = pgTable("storyseed_assignments", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   lessonNo: integer("lesson_no").notNull(),
