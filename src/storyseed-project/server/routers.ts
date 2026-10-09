@@ -61,7 +61,18 @@ const safeWritingRules = `You are StorySeed, a supportive AI writing coach for H
 
 export const appRouter = router({
   system: systemRouter,
-  auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const cookieOptions = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 }); return { success: true } as const; }) }),
+  auth: router({
+    me: publicProcedure.query(({ ctx }) => {
+      if (!ctx.user) return null;
+      const { passwordHash: _ignored, ...safeUser } = ctx.user;
+      return safeUser;
+    }),
+    logout: publicProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true } as const;
+    }),
+  }),
   curriculum: router({ classes: publicProcedure.query(() => listClasses()), assignments: publicProcedure.input(z.object({ level: z.enum(["P5", "P6"]) })).query(({ input }) => listAssignments(input.level)), bindMember: protectedProcedure.input(z.object({ classCode: z.string().max(32), userId: z.number(), schoolCode: z.string().max(32), role: z.enum(["student", "teacher", "tutor"]) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['admin']); const schoolClass = await getClassByCode(input.classCode); if (!schoolClass) throw new Error('找不到指定班別。'); return bindClassMember({ classId: schoolClass.id, userId: input.userId, schoolCode: input.schoolCode, role: input.role }); }) }),
   writing: router({
     create: protectedProcedure.input(z.object({ assignmentId: z.number(), title: z.string().max(180).optional(), body: z.string().max(12000), stage: z.enum(["idea", "outline", "draft", "revision", "submitted"]) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['student', 'admin']); const writingId = await createWriting({ studentId: ctx.user.id, assignmentId: input.assignmentId, title: input.title, stage: input.stage, status: input.stage === 'submitted' ? 'submitted' : 'draft' }); await saveWritingVersion({ writingId, stage: input.stage, body: sanitizeStudentText(input.body), studentNote: '初次儲存' }); return { writingId }; }),
