@@ -13,6 +13,9 @@ export async function setSessionCookie(
   res: Response,
   input: { openId: string; name: string }
 ) {
+  if (!ENV.cookieSecret) {
+    throw new Error("伺服器未設定 JWT_SECRET，無法建立登入工作階段。");
+  }
   const token = await sdk.signSession({
     openId: input.openId,
     appId: sessionAppId(),
