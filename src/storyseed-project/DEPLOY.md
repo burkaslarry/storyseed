@@ -18,7 +18,9 @@ All paths in `vercel.json` are relative to **this folder** (not the git repo roo
 
 ## Environment
 
-Set on Vercel (Production + Preview): `DATABASE_URL`, `PGSSL=true`, `PGSSLMODE=require`, plus auth/LLM vars from `.env.example`.
+Set on Vercel (Production + Preview): `DATABASE_URL`, `PGSSL=true`, `PGSSLMODE=require`, **`JWT_SECRET`** (required for teacher/student login cookies), plus auth/LLM vars from `.env.example`.
+
+Drill teacher: `teacher-drill@chungsing.edu.hk` / `DrillTeacher01` · student: `student-p6-drill` / `DRILLCODE01` (passwords stored as MD5 in Postgres).
 
 ## Database
 

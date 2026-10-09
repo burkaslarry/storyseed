@@ -1,5 +1,14 @@
 -- Drill seed: trash + student + teacher + writing + assessment (idempotent)
 
+UPDATE storyseed_users SET
+  open_id = 'teacher_teacher-drill@chungsing.edu.hk',
+  name = 'Drill Teacher',
+  email = 'teacher-drill@chungsing.edu.hk',
+  password_hash = '983b8374f2c5ce223c727b35aa3aea06',
+  login_method = 'password',
+  role = 'teacher'
+WHERE open_id = 'teacher_drill@storyseed.local';
+
 INSERT INTO storyseed_classes (code, level, title)
 VALUES ('6F', 'P6', 'P6 StorySeed Demo')
 ON CONFLICT (code) DO NOTHING;
