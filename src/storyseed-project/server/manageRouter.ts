@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import { getClassByCode } from "./db";
+import { assertTeacherClassAccess, assertTeacherClassIdAccess } from "./security/classAccess";
 import {
   createClassWritingAssignment,
   createOneStudentAccount,
@@ -24,8 +25,7 @@ export function createManageRouter(requireRoleFn: RequireRole) {
     assignments: router({
       list: protectedProcedure.input(z.object({ classCode: z.string().max(32) })).query(async ({ ctx, input }) => {
         await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
-        const schoolClass = await getClassByCode(input.classCode);
-        if (!schoolClass) throw new Error("找不到指定班別。");
+        const schoolClass = await assertTeacherClassAccess(ctx.user, input.classCode);
         return listClassWritingAssignments(schoolClass.id);
       }),
       create: protectedProcedure
@@ -39,8 +39,7 @@ export function createManageRouter(requireRoleFn: RequireRole) {
         )
         .mutation(async ({ ctx, input }) => {
           await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
-          const schoolClass = await getClassByCode(input.classCode);
-          if (!schoolClass) throw new Error("找不到指定班別。");
+          const schoolClass = await assertTeacherClassAccess(ctx.user, input.classCode);
           return createClassWritingAssignment({
             classId: schoolClass.id,
             createdBy: ctx.user.id,
@@ -51,6 +50,10 @@ export function createManageRouter(requireRoleFn: RequireRole) {
         }),
       open: protectedProcedure.input(z.object({ assignmentId: z.number() })).mutation(async ({ ctx, input }) => {
         await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
+        const { getClassWritingAssignment } = await import("./manageDb");
+        const assignment = await getClassWritingAssignment(input.assignmentId);
+        if (!assignment) throw new Error("找不到寫作任務。");
+        await assertTeacherClassIdAccess(ctx.user, assignment.classId);
         return openClassWritingAssignment(input.assignmentId);
       }),
       update: protectedProcedure
@@ -76,8 +79,7 @@ export function createManageRouter(requireRoleFn: RequireRole) {
           await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
           if (ctx.user.role === "admin") return listStudentsAdmin(input.classCode);
           if (!input.classCode) throw new Error("請提供班別代碼。");
-          const schoolClass = await getClassByCode(input.classCode);
-          if (!schoolClass) throw new Error("找不到指定班別。");
+          const schoolClass = await assertTeacherClassAccess(ctx.user, input.classCode);
           return listStudentAccountsForClass(schoolClass.id);
         }),
       createOne: protectedProcedure
@@ -90,6 +92,7 @@ export function createManageRouter(requireRoleFn: RequireRole) {
         )
         .mutation(async ({ ctx, input }) => {
           await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
+          await assertTeacherClassAccess(ctx.user, input.classCode);
           return createOneStudentAccount(input);
         }),
       setActive: protectedProcedure
@@ -103,8 +106,7 @@ export function createManageRouter(requireRoleFn: RequireRole) {
         .input(z.object({ classCode: z.string().max(32) }))
         .query(async ({ ctx, input }) => {
           await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
-          const schoolClass = await getClassByCode(input.classCode);
-          if (!schoolClass) throw new Error("找不到指定班別。");
+          const schoolClass = await assertTeacherClassAccess(ctx.user, input.classCode);
           const rows = await listStudentAccountsForClass(schoolClass.id);
           return rows.map((r) => ({
             schoolCode: r.schoolCode,

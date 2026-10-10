@@ -7,11 +7,13 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
+import { csrfOriginGuard } from "../security/csrf";
 
 export function createApp(): Express {
   const app = express();
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(csrfOriginGuard);
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   app.use(

@@ -20,7 +20,7 @@ describe("student account provisioning", () => {
     const code = generateInitialCode();
     const hash = hashInitialCode(code);
     expect(code).toHaveLength(10);
-    expect(hash).toMatch(/^[a-f0-9]{32}$/);
+    expect(hash).toMatch(/^[a-f0-9]{32}:[a-f0-9]{32}$/);
     expect(hash).not.toContain(code);
     expect(verifyInitialCode(code, hash)).toBe(true);
     expect(verifyInitialCode(`${code}X`, hash)).toBe(false);

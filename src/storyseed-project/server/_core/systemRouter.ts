@@ -17,7 +17,7 @@ export const systemRouter = router({
 
   dbPing: publicProcedure.query(async () => {
     const db = await checkDatabaseHealth();
-    return db;
+    return { ok: db.ok };
   }),
 
   notifyOwner: adminProcedure

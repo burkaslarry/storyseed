@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { classWritingAssignments, classes, studentAccounts, teachers, users } from "../drizzle/schema";
+import { classWritingAssignments, classes, studentAccounts, teacherClasses, teachers, users } from "../drizzle/schema";
 import {
   generateInitialCode,
   hashInitialCode,
@@ -248,9 +248,10 @@ export async function removeTeacherAccount(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
   await db.delete(teachers).where(eq(teachers.userId, userId));
+  await db.delete(teacherClasses).where(eq(teacherClasses.teacherUserId, userId));
   await db
     .update(users)
-    .set({ role: "student", loginMethod: "disabled", passwordHash: null, updatedAt: new Date() })
+    .set({ role: "disabled", loginMethod: "disabled", passwordHash: null, updatedAt: new Date() })
     .where(eq(users.id, userId));
 }
 

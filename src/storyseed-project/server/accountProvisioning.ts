@@ -5,7 +5,10 @@
  * `assertStudentCodeChanged` blocks protected student APIs until the
  * first-login code change is done.
  */
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { hashPasswordMd5, verifyStoredSecret } from "./security/password";
+
+export { hashPasswordMd5 } from "./security/password";
 
 export type StudentImportRow = { schoolCode: string; username: string };
 
@@ -39,11 +42,6 @@ export function generateInitialCode(length = 10) {
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 }
 
-/** Store login secrets as MD5 hex (school requirement). */
-export function hashPasswordMd5(plain: string) {
-  return createHash("md5").update(plain, "utf8").digest("hex");
-}
-
 export function hashInitialCode(code: string) {
   return hashPasswordMd5(code);
 }
@@ -53,15 +51,11 @@ export function assertStudentCodeChanged(mustChangeCode: number | boolean | null
 }
 
 export function verifyInitialCode(code: string, stored: string) {
-  const calculated = hashPasswordMd5(code);
-  const a = Buffer.from(calculated, "utf8");
-  const b = Buffer.from(stored, "utf8");
-  return a.length === b.length && timingSafeEqual(a, b);
+  return verifyStoredSecret(code, stored);
 }
 
 export function verifyPasswordMd5(plain: string, stored: string | null | undefined) {
-  if (!stored) return false;
-  return verifyInitialCode(plain, stored);
+  return verifyStoredSecret(plain, stored);
 }
 
 export function normalizeTeacherEmail(email: string) {

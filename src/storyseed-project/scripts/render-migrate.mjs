@@ -24,9 +24,12 @@ if (mode === "seed") {
 } else if (mode === "v4") {
   runSqlFile("drizzle/storyseed_postgres_v4_manage.sql");
   runSqlFile("drizzle/storyseed_seed_drill.sql");
+} else if (mode === "v5") {
+  runSqlFile("drizzle/storyseed_postgres_v5_security.sql");
 } else {
   runSqlFile("drizzle/storyseed_postgres_v2.sql");
   runSqlFile("drizzle/storyseed_postgres_v3_password_auth.sql");
   runSqlFile("drizzle/storyseed_postgres_v4_manage.sql");
+  runSqlFile("drizzle/storyseed_postgres_v5_security.sql");
   runSqlFile("drizzle/storyseed_seed_drill.sql");
 }

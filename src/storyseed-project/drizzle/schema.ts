@@ -67,6 +67,20 @@ export const students = pgTable("storyseed_students", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const teacherClasses = pgTable(
+  "storyseed_teacher_classes",
+  {
+    teacherUserId: integer("teacher_user_id")
+      .notNull()
+      .references(() => users.id),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => classes.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("storyseed_teacher_classes_pair").on(t.teacherUserId, t.classId)]
+);
+
 export const teachers = pgTable("storyseed_teachers", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   userId: integer("user_id")
