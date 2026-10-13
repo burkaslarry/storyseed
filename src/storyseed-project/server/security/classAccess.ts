@@ -26,12 +26,12 @@ export async function assertTeacherClassAccess(
   user: { id: number; role: string },
   classCode: string
 ) {
-  if (user.role === "admin") return getClassByCode(classCode);
+  const schoolClass = await getClassByCode(classCode);
+  if (!schoolClass) throw new Error("找不到指定班別。");
+  if (user.role === "admin") return schoolClass;
   if (user.role !== "teacher" && user.role !== "tutor") {
     throw new Error("你沒有權限進行這項操作。");
   }
-  const schoolClass = await getClassByCode(classCode);
-  if (!schoolClass) throw new Error("找不到指定班別。");
   const ok = await teacherHasClass(user.id, schoolClass.id);
   if (!ok) throw new Error("你未被指派到此班別。");
   return schoolClass;

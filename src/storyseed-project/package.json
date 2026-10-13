@@ -13,7 +13,8 @@
     "test:sraa": "vitest run server/sraa.postgres.test.ts",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate:render": "node scripts/render-migrate.mjs",
-    "db:seed:render": "node scripts/render-migrate.mjs seed"
+    "db:seed:render": "node scripts/render-migrate.mjs seed",
+    "build:hostinger": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --external:./vite --format=esm --outfile=dist/server/index.js --log-level=warning"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -125,5 +126,9 @@
       "esbuild",
       "@tailwindcss/oxide"
     ]
+  },
+  "main": "dist/server/index.js",
+  "engines": {
+    "node": ">=22"
   }
 }

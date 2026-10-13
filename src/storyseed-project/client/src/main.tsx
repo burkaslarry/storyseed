@@ -79,3 +79,14 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </trpc.Provider>
 );
+
+// Optional analytics: skip it entirely when the host has no analytics configuration.
+const analyticsEndpoint = import.meta.env.VITE_ANALYTICS_ENDPOINT;
+const analyticsWebsiteId = import.meta.env.VITE_ANALYTICS_WEBSITE_ID;
+if (analyticsEndpoint && analyticsWebsiteId) {
+  const analytics = document.createElement("script");
+  analytics.defer = true;
+  analytics.src = `${analyticsEndpoint.replace(/\/$/, "")}/umami`;
+  analytics.dataset.websiteId = analyticsWebsiteId;
+  document.head.appendChild(analytics);
+}

@@ -11,6 +11,7 @@ import { csrfOriginGuard } from "../security/csrf";
 
 export function createApp(): Express {
   const app = express();
+  app.get("/healthz", (_req, res) => res.json({ ok: true }));
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.use(csrfOriginGuard);

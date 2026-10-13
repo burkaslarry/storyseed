@@ -19,18 +19,18 @@ Chung Sing School P5／P6 寫作平台：學生寫作與修訂、教師校對評
 | [F002] | 學生、教師及管理員登入 | `/student-login`、`/teacher-login`、`/admin-login`；`server/routers.ts` | [S003]–[S004] |
 | [F003] | 單一學生新增、CSV 匯入／匯出 | 教師「帳號」；`client/src/components/teacher/AccountsDesk.tsx` | [S005]–[S007] |
 | [F004] | 班級寫作任務 | 教師「寫作任務」；`server/manageDb.ts` | [S008]–[S009] |
-| [F005] | 15 課寫作及階段版本 | `/student`；`client/src/pages/Home.tsx` | [S010] |
+| [F005] | 15 課寫作及階段版本 | `/student`；`client/src/pages/Home.tsx` | [S010]、[S019] |
 | [F006] | AI 校對及教師評分 | 學生／教師「校對」；`server/writingEvaluation.ts` | [S011]–[S012] |
 | [F007] | 作品集編輯及匯出 | 教師「作品集」；`server/anthologyPdf.ts` | [S013] |
 | [F008] | 管理員學生及教師管理 | `/admin`；`server/manageRouter.ts` | [S014]–[S015] |
 | [F009] | PostgreSQL migration／seed | `drizzle/storyseed_*.sql` | [S016] |
-| [F010] | Vercel 部署及驗證 | `vercel.json`、`api/index.js` | [S017]–[S018] |
+| [F010] | Vercel 部署及驗證 | `vercel.json`、`api/index.js` | [S017]–[S018]、[S020] |
 
 ## 架構與部署目錄
 
 React 19 + Vite → Express／tRPC API → Drizzle + `pg` → Render PostgreSQL。
 
-- App 部署平台：Vercel；Render 僅提供資料庫。
+- App 現有部署平台：Vercel；另備 Hostinger Node.js 部署設定，見 `HOSTINGER_DEPLOY.md`。Render 提供 PostgreSQL。
 - Vercel Root Directory：`src/storyseed-project`。
 - 本地完整路徑：`/Users/larrylo/SourceProject/storyseed/src/storyseed-project`。
 - Render DB：`dpg-d6iok5q4d50c738643c0-a`；應用資料表以 `storyseed_` 開頭。
@@ -145,7 +145,7 @@ P6-02,6F
  */
 ```
 
-目前發佈以班級為範圍，並未實作「教師只可管理自己名下班級」的檢查。教師自訂任務使用 1000 起的 lessonNo；初始 SQL 的 writings.lesson_no 限制為 1–15，現有 v4 migration 沒有解除限制。因此按原始 migration 建出的資料庫可能無法完成發佈，不能視為已驗證的全班任務流程。
+目前發佈以班級為範圍；API 透過 teacherClasses 檢查教師的班級指派。教師自訂任務使用 1000 起的 lessonNo；初始 SQL 的 writings.lesson_no 限制為 1–15，現有 v4 migration 沒有解除限制。因此按原始 migration 建出的資料庫可能無法完成發佈，不能視為已驗證的全班任務流程。
 
 ## [F005] 學生写作
 
@@ -157,7 +157,7 @@ P6-02,6F
  */
 ```
 
-15 課的教材及活動仍來自 `Home.tsx` 內置陣列。P5/P6 共用課程內容；暫無 PDF／Word 教材上載功能，也未見學生端自訂任務清單及選擇入口。Demo 資料在記憶體中，重新整理可能消失。
+15 課分為 5 個單元，每單元 3 堂；第 3／6／9／12／15 堂提交正式作文。教材及活動來自 `Home.tsx` 內置陣列，P5/P6 有不同建議作文題目；暫無 PDF／Word 教材上載功能，也未見學生端自訂任務清單及選擇入口。Demo 資料在記憶體中，重新整理可能消失。
 
 ## [F006] 校對及教師評分
 
