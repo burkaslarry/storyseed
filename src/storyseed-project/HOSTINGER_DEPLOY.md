@@ -12,12 +12,14 @@ Use managed Node.js hosting or an existing VPS. Static-only hosting cannot run l
 | Package manager | pnpm 10 as pinned in package.json |
 | Install | `pnpm install --frozen-lockfile` |
 | Build | `pnpm build:hostinger` |
-| Entry file | `dist/server/index.js` |
+| Entry file | `hostinger.cjs` |
 | Start | `pnpm start` |
 | Client assets | `dist/public`, served by Express |
 | Health | `/healthz` |
 
 The process binds 0.0.0.0 on the injected PORT, without switching ports in production. The client directory resolves relative to the server bundle. Unknown API paths return JSON 404; SPA paths serve index.html.
+
+Hostinger currently invokes `pnpm run build` for Express. The default build also creates the server bundle. `hostinger.cjs` is a CommonJS-compatible launcher which dynamically imports that ESM bundle and logs startup failures.
 
 ## [F001][S001] Configure runtime secrets
 

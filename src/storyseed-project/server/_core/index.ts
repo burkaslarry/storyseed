@@ -10,8 +10,7 @@ import { serveStatic } from "./static";
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
-    server.on("error", (error) => { console.error(error); process.exitCode = 1; });
-  server.listen(port, "0.0.0.0", () => {
+    server.listen(port, () => {
       server.close(() => resolve(true));
     });
     server.on("error", () => resolve(false));
