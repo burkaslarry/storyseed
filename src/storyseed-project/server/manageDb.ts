@@ -122,7 +122,7 @@ export async function openClassWritingAssignment(assignmentId: number) {
 export async function listStudentAccountsForClass(classId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(studentAccounts).where(eq(studentAccounts.classId, classId)).orderBy(studentAccounts.username);
+  return db.select({ id: studentAccounts.id, classId: studentAccounts.classId, schoolCode: studentAccounts.schoolCode, username: studentAccounts.username, studentName: studentAccounts.studentName, studentEmail: studentAccounts.studentEmail, active: studentAccounts.active, mustChangeCode: studentAccounts.mustChangeCode }).from(studentAccounts).where(eq(studentAccounts.classId, classId)).orderBy(studentAccounts.username);
 }
 
 export async function listStudentsAdmin(classCode?: string) {

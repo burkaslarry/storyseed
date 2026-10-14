@@ -6,9 +6,10 @@ import { Download, LockKeyhole, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 type TFn = (lang: "zh" | "en", key: string, vars?: Record<string, string | number>) => string;
 
+function csvCell(value: unknown) { return '"' + String(value ?? "").replace(/^[=+@-]/, "'$&").replace(/"/g, '""') + '"'; }
 export function AccountsDesk({ lang, user, t }: { lang: "zh" | "en"; user: unknown; t: TFn }) {
-  const [classCode, setClassCode] = useState("6F");
-  const [csv, setCsv] = useState("schoolCode,classCode\nP6-01,6F\nP6-02,6F");
+  const [classCode, setClassCode] = useState("5A");
+  const [csv, setCsv] = useState("student ID,student name,student email,student password\nw00001,示範學生,student@example.com,SampleOnly01");
   const [schoolCode, setSchoolCode] = useState("");
   const [result, setResult] = useState<any>(null);
   const [oneResult, setOneResult] = useState<any>(null);
@@ -31,8 +32,8 @@ export function AccountsDesk({ lang, user, t }: { lang: "zh" | "en"; user: unkno
   const exportQuery = trpc.manage.students.exportCsv.useQuery({ classCode }, { enabled: false });
   const downloadCredentials = () => {
     if (!result?.credentials) return;
-    const rows = [["schoolCode", "username", "initialCode"], ...result.credentials.map((item: any) => [item.schoolCode, item.username, item.initialCode])];
-    const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const rows = [["student ID", "student name", "student email", "student password"], ...result.credentials.map((item: any) => [item.username, item.studentName, item.studentEmail, item.initialCode])];
+    const blob = new Blob([rows.map((row) => row.map(csvCell).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -43,8 +44,8 @@ export function AccountsDesk({ lang, user, t }: { lang: "zh" | "en"; user: unkno
   const downloadRoster = async () => {
     const { data } = await exportQuery.refetch();
     if (!data) return;
-    const rows = [["schoolCode", "classCode", "username", "active", "mustChangeCode"], ...data.map((r) => [r.schoolCode, r.classCode, r.username, r.active, r.mustChangeCode])];
-    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const rows = [["student ID", "student name", "student email", "classCode", "active"], ...data.map((r) => [r.username, r.studentName, r.studentEmail, r.classCode, r.active])];
+    const blob = new Blob([rows.map(row => row.map(csvCell).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -93,6 +94,14 @@ export function AccountsDesk({ lang, user, t }: { lang: "zh" | "en"; user: unkno
               {t(lang, "classCode")}
               <input value={classCode} onChange={(e) => setClassCode(e.target.value)} className="field mt-1.5" />
             </label>
+            <label className="mt-4 block text-sm">上傳學生 CSV（UTF-8）
+              <input className="mt-2 block" type="file" accept=".csv,text/csv" onChange={async e => {
+                const file = e.target.files?.[0]; if (!file) return;
+                if (file.size > 12000) { setError("CSV 檔案不可大於 12 KB。"); return; }
+                try { setCsv(await file.text()); setError(null); setResult(null); } catch { setError("讀取 CSV 失敗。"); }
+              }} />
+            </label>
+            <p className="mt-2 text-xs">student ID,student name,student email,student password。班別在上方選擇；可加 classCode 欄以驗證班別。</p>
             <Textarea value={csv} onChange={(e) => setCsv(e.target.value)} className="mt-4 min-h-[220px] rounded-2xl border-[#dfe8e1] bg-[#fbfcf9] font-mono text-xs" />
             <div className="mt-4 flex flex-wrap gap-2">
               <Button onClick={() => mutation.mutate({ classCode, csv })} disabled={!user || mutation.isPending} className="rounded-full bg-[#243f38] text-white">

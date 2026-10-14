@@ -24,6 +24,8 @@ if (mode === "seed") {
 } else if (mode === "v4") {
   runSqlFile("drizzle/storyseed_postgres_v4_manage.sql");
   runSqlFile("drizzle/storyseed_seed_drill.sql");
+} else if (mode === "v7") {
+  runSqlFile("drizzle/storyseed_postgres_v7_student_roster.sql");
 } else if (mode === "v6") {
   runSqlFile("drizzle/storyseed_postgres_v6_custom_lessons.sql");
 } else if (mode === "v5") {

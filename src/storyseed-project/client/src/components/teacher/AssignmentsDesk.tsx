@@ -6,10 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 
 export function AssignmentsDesk({ user }: { user: unknown }) {
-  const [classCode, setClassCode] = useState("6F");
+  const [classCode, setClassCode] = useState("5A");
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [level, setLevel] = useState<"P5" | "P6">("P6");
+  const [level, setLevel] = useState<"P5" | "P6">("P5");
   const list = trpc.manage.assignments.list.useQuery({ classCode }, { enabled: Boolean(user) });
   const create = trpc.manage.assignments.create.useMutation({ onSuccess: () => list.refetch() });
   const open = trpc.manage.assignments.open.useMutation({ onSuccess: () => list.refetch() });

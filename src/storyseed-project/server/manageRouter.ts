@@ -110,6 +110,8 @@ export function createManageRouter(requireRoleFn: RequireRole) {
           const rows = await listStudentAccountsForClass(schoolClass.id);
           return rows.map((r) => ({
             schoolCode: r.schoolCode,
+            studentName: r.studentName ?? "",
+            studentEmail: r.studentEmail ?? "",
             classCode: input.classCode,
             username: r.username,
             active: r.active ? "1" : "0",

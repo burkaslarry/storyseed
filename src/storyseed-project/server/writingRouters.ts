@@ -10,7 +10,7 @@ import {
 } from "./db";
 import type { requireRole } from "./routers";
 import { assertWritingRead, assertWritingStudentWrite, assertWritingTeacherWrite } from "./security/writingAccess";
-import { normalizeEvaluation } from "./writingEvaluation";
+import { normalizeEvaluation, createManualEvaluation } from "./writingEvaluation";
 import { sanitizeStudentText } from "./sanitize";
 
 type RequireRole = typeof requireRole;
@@ -45,6 +45,12 @@ export function createWritingRouters(requireRoleFn: RequireRole) {
           });
           return { writingId };
         }),
+      mine: protectedProcedure.query(async ({ ctx }) => {
+        await requireRoleFn(ctx, ["student", "admin"]);
+        const { getDb } = await import("./db"); const { writings } = await import("../drizzle/schema"); const { eq } = await import("drizzle-orm");
+        const db = await getDb(); if (!db) throw new Error("Database unavailable");
+        return db.select().from(writings).where(eq(writings.studentId, ctx.user.id));
+      }),
       saveVersion: protectedProcedure
         .input(
           z.object({
@@ -75,7 +81,7 @@ export function createWritingRouters(requireRoleFn: RequireRole) {
     writingEvaluation: router({
       queue: protectedProcedure.query(async ({ ctx }) => {
         await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
-        const rows = await (await import("./db")).listWritingEvaluations();
+        const rows = await (await import("./db")).listWritingEvaluations(ctx.user);
         return rows;
       }),
       save: protectedProcedure
@@ -93,23 +99,11 @@ export function createWritingRouters(requireRoleFn: RequireRole) {
         )
         .mutation(async ({ ctx, input }) => {
           await requireRoleFn(ctx, ["student", "admin"]);
-          await assertWritingStudentWrite(ctx, input.writingId);
-          const parsed = normalizeEvaluation(input.evaluation, input.level);
-          const withStudentWork = {
-            ...parsed,
-            issues: parsed.issues.map((issue) => ({
-              ...issue,
-              studentRevision: input.studentRevisions[issue.id] ?? issue.studentRevision,
-              status: input.statuses[issue.id] ?? issue.status,
-            })),
-          };
-          await saveWritingEvaluation({
-            writingId: input.writingId,
-            level: input.level,
-            evaluationData: JSON.stringify(withStudentWork),
-            reflection: input.reflection ?? null,
-          });
-          return withStudentWork;
+          const saved = await getWritingEvaluation(input.writingId);
+          const writing = await assertWritingStudentWrite(ctx, input.writingId);
+          const parsed = saved ? normalizeEvaluation(JSON.parse(saved.evaluationData), saved.level) : createManualEvaluation(writing.level);
+          await saveWritingEvaluation({ writingId: input.writingId, level: writing.level, evaluationData: JSON.stringify(parsed), reflection: input.reflection ?? saved?.reflection, teacherNote: saved?.teacherNote, rubricOverrides: saved?.rubricOverrides, reviewedAt: saved?.reviewedAt });
+          return parsed;
         }),
       get: protectedProcedure.input(z.object({ writingId: z.number() })).query(async ({ ctx, input }) => {
         await requireRoleFn(ctx, ["student", "teacher", "tutor", "admin"]);
@@ -118,6 +112,7 @@ export function createWritingRouters(requireRoleFn: RequireRole) {
         if (!saved) return null;
         return {
           ...normalizeEvaluation(JSON.parse(saved.evaluationData), saved.level),
+          reviewedAt: saved.reviewedAt,
           reflection: saved.reflection,
           teacherNote: saved.teacherNote,
           rubricOverrides: saved.rubricOverrides ? JSON.parse(saved.rubricOverrides as string) : {},
@@ -136,30 +131,12 @@ export function createWritingRouters(requireRoleFn: RequireRole) {
         )
         .mutation(async ({ ctx, input }) => {
           await requireRoleFn(ctx, ["teacher", "tutor", "admin"]);
-          await assertWritingTeacherWrite(ctx, input.writingId);
+          const writing = await assertWritingTeacherWrite(ctx, input.writingId);
+          const keys = ["ideasVoice", "structure", "language", "revision"];
+          if (!keys.every(key => input.rubricOverrides[key] !== undefined) || Object.keys(input.rubricOverrides).some(key => !keys.includes(key))) throw new Error("請填寫四項分數（每項 0–25）。");
           const saved = await getWritingEvaluation(input.writingId);
-          if (!saved) throw new Error("學生尚未保存校對評估。");
-          const parsed = normalizeEvaluation(JSON.parse(saved.evaluationData), saved.level);
-          const reviewed = {
-            ...parsed,
-            rubric: parsed.rubric.map((row) => ({
-              ...row,
-              score: input.rubricOverrides[row.key] ?? row.score,
-            })),
-            issues: parsed.issues.map((issue) => ({
-              ...issue,
-              status: input.issueStatuses[issue.id] ?? issue.status,
-            })),
-          };
-          await saveWritingEvaluation({
-            writingId: input.writingId,
-            level: saved.level,
-            evaluationData: JSON.stringify(reviewed),
-            reflection: saved.reflection,
-            teacherNote: input.teacherNote ?? saved.teacherNote,
-            rubricOverrides: JSON.stringify(input.rubricOverrides),
-            reviewedAt: new Date(),
-          });
+          const reviewed = createManualEvaluation(writing.level, input.rubricOverrides);
+          await saveWritingEvaluation({ writingId: input.writingId, level: writing.level, evaluationData: JSON.stringify(reviewed), reflection: saved?.reflection, teacherNote: input.teacherNote ?? "", rubricOverrides: JSON.stringify(input.rubricOverrides), reviewedAt: new Date() });
           return reviewed;
         }),
     }),

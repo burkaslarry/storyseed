@@ -93,11 +93,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     .onConflictDoUpdate({
       target: users.openId,
       set: {
-        name: user.name ?? null,
-        email: user.email ?? null,
-        passwordHash: user.passwordHash ?? null,
-        loginMethod: user.loginMethod ?? null,
-        role,
+        ...(user.name !== undefined ? { name: user.name } : {}),
+        ...(user.email !== undefined ? { email: user.email } : {}),
+        ...(user.passwordHash !== undefined ? { passwordHash: user.passwordHash } : {}),
+        ...(user.loginMethod !== undefined ? { loginMethod: user.loginMethod } : {}),
+        ...(user.role !== undefined ? { role: user.role } : {}),
         lastSignedIn: user.lastSignedIn ?? new Date(),
         updatedAt: new Date(),
       },
@@ -252,19 +252,14 @@ export async function getWritingEvaluation(writingId: number) {
   };
 }
 
-export async function listWritingEvaluations() {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select({
-      writingId: writingAssessments.writingId,
-      level: writingAssessments.level,
-      teacherNote: writingAssessments.teacherNote,
-      reviewedAt: writingAssessments.reviewedAt,
-      updatedAt: writingAssessments.updatedAt,
-    })
-    .from(writingAssessments)
-    .orderBy(desc(writingAssessments.updatedAt));
+export async function listWritingEvaluations(user: { id: number; role: string }) {
+  const db = await getDb(); if (!db) return [];
+  const { teacherClasses } = await import("../drizzle/schema");
+  return db.select({ writingId: writings.id, title: writings.title, level: writings.level, teacherNote: writingAssessments.teacherNote, reviewedAt: writingAssessments.reviewedAt, updatedAt: writings.updatedAt, studentCode: studentAccounts.schoolCode })
+    .from(writings).innerJoin(studentAccounts, eq(studentAccounts.userId, writings.studentId))
+    .leftJoin(writingAssessments, eq(writingAssessments.writingId, writings.id))
+    .where(user.role === "admin" ? undefined : sql`${studentAccounts.classId} in (select ${teacherClasses.classId} from ${teacherClasses} where ${teacherClasses.teacherUserId} = ${user.id})`)
+    .orderBy(desc(writings.updatedAt));
 }
 
 export async function addFeedback(input: typeof feedback.$inferInsert) {
@@ -453,8 +448,14 @@ export async function updateStudentAccountCode(id: number, initialCodeHash: stri
 
 export async function createOrGetStudentUser(username: string) {
   const openId = `student_${username}`;
-  await upsertUser({ openId, name: `Student ${username}`, loginMethod: "school-code", role: "student" });
-  return getUserByOpenId(openId);
+  const existing = await getUserByOpenId(openId);
+  if (existing) return existing;
+  const account = await getStudentAccountByUsername(username);
+  await upsertUser({ openId, name: account?.studentName ?? `Student ${username}`, email: account?.studentEmail, loginMethod: "school-code", role: "student" });
+  const user = await getUserByOpenId(openId);
+  const db = await getDb();
+  if (user && account && db) await db.update(studentAccounts).set({ userId: user.id }).where(eq(studentAccounts.id, account.id));
+  return user;
 }
 
 export async function listStudentAccounts(classId: number) {

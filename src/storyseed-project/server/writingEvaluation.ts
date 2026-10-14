@@ -57,3 +57,8 @@ export function parseEvaluationContent(content: unknown, level: "P5" | "P6" = "P
   if (typeof content !== "string") return createFallbackEvaluation(level);
   try { return normalizeEvaluation(JSON.parse(content), level); } catch { return createFallbackEvaluation(level); }
 }
+
+/* [F012][S024] Construct a teacher-authored evaluation; pending work carries no displayed score. */
+export function createManualEvaluation(level: "P5" | "P6", scores?: Record<string, number>): WritingEvaluation {
+  return { level, rubric: (Object.keys(rubricLabels) as Array<keyof typeof rubricLabels>).map(key => ({ key, label: rubricLabels[key], score: scores?.[key] ?? 0, reason: "教師人手評分" })), strengths: ["請參閱教師評語。"], nextSteps: ["根據教師評語修訂作品。"], issues: [] };
+}

@@ -260,6 +260,8 @@ export const studentAccounts = pgTable("storyseed_student_accounts", {
   userId: integer("user_id").references(() => users.id),
   schoolCode: text("school_code").notNull().unique(),
   username: text("username").notNull().unique(),
+  studentName: text("student_name"),
+  studentEmail: text("student_email"),
   initialCodeHash: text("initial_code_hash").notNull(),
   mustChangeCode: boolean("must_change_code").default(true).notNull(),
   active: boolean("active").default(true).notNull(),

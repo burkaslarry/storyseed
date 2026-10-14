@@ -259,3 +259,33 @@ pnpm build
 - `server/routers.ts`、`server/manageRouter.ts`：API 與角色檢查。
 - `server/manageDb.ts`：帳戶管理與班級任務資料流程。
 - `LOCAL_SETUP.md`、`AI_HANDOFF.md`、`README-full.md`：舊交接資料；部分內容可能仍指向 MySQL／OAuth，應以現有程式及本文件為準。
+
+## 2026-10-14 校方名單及人手評分
+
+### [F011][S021] 上傳學生 CSV
+
+Input：教師選擇班別，上傳 UTF-8 CSV；欄位為 `student ID,student name,student email,student password`。可加 `classCode` 驗證班別。
+Process：檢查 quoted CSV、重複 ID／電郵、8–32 字元密碼、每批 40 人上限。使用一個 transaction 建立 user、student、class member 及 student account；衝突整批回滾。
+Output：学生用 CSV 的 student ID 及密碼登入 `/student-login`。匯出名單不包含密碼；本次匯入的 credentials 只顯示一次。
+
+### [F011][S022] Schema mapping
+
+所有表名沿用 `storyseed_` prefix，避免重命名破壞作品及外鍵。`storyseed_student_accounts` 新增 `student_name`、`student_email`；CSV `student ID` 對應 `school_code` 及 `username`。學生正式姓名／電郵亦存於 `storyseed_users.name/email`；密碼只以雜湊存於 `initial_code_hash`／`password_hash`。`storyseed_students` 保存班別與年級，`storyseed_class_members` 保存班級關聯。Migration：`node scripts/render-migrate.mjs v7`。真實名單及登入密碼不進 Git。
+
+### [F012][S025] 學生提交及查看評分
+
+Input：學生寫作／修訂內容。
+Process：保存修訂或提交教師評分；登入後從資料庫取回 writing IDs。
+Output：未評分顯示「待教師評分」；教師保存評分後顯示四項分數、總分及評語。沒有自動 AI 分數。
+
+### [F012][S026] 教師人手評分
+
+Input：教師在 `/teacher?studio=proofreading` 選取其班級學生作品。
+Process：閱讀最新版本，填寫構思與創意、結構、語言、修訂努力四項各 0–25 分及評語。毋須任何 AI 評估紀錄；伺服器檢查教師班級權限及四項分數。
+Output：保存 `storyseed_writing_assessments`，学生可以查看。學生反思 API 不能覆寫教師分數、評語或 reviewedAt。
+
+### [F013][S027] 登入資料保留
+
+Input：已登入 session 的 lastSignedIn 更新。
+Process：upsert 只更新有提供的欄位，保留姓名、電郵、密碼雜湊及角色。
+Output：教師／學生再次登入仍然有效。測試帳戶密碼只在私有交付資料提供。
