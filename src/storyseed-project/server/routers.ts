@@ -46,12 +46,14 @@ export { sanitizeStudentText };
 
 const supportMode = z.enum(["idea", "language", "structure", "proofread"]);
 export async function requireRole(ctx: { user: { id: number; role: string; openId: string | null } }, allowed: Array<'student' | 'teacher' | 'tutor' | 'admin'>) {
+  if (ctx.user.role === 'disabled') throw new Error('帳戶已停用。');
   if (ctx.user.role === 'admin' && allowed.includes('admin')) return;
   const platformRole = ctx.user.role === 'teacher' ? 'teacher' : ctx.user.role === 'student' ? 'student' : null;
   if (platformRole && allowed.includes(platformRole)) {
     if (platformRole === 'student' && ctx.user.openId?.startsWith('student_')) {
       const account = await getStudentAccountByUsername(ctx.user.openId.slice('student_'.length));
-      assertStudentCodeChanged(account?.mustChangeCode);
+      if (!account?.active) throw new Error("學生帳戶已停用。");
+      assertStudentCodeChanged(account.mustChangeCode);
     }
     return;
   }
@@ -60,7 +62,8 @@ export async function requireRole(ctx: { user: { id: number; role: string; openI
   if (!member || !allowed.includes(member.role)) throw new Error('你沒有權限進行這項操作。');
   if (member.role === 'student' && ctx.user.openId?.startsWith('student_')) {
     const account = await getStudentAccountByUsername(ctx.user.openId.slice('student_'.length));
-    assertStudentCodeChanged(account?.mustChangeCode);
+    if (!account?.active) throw new Error("學生帳戶已停用。");
+    assertStudentCodeChanged(account.mustChangeCode);
   }
 }
 

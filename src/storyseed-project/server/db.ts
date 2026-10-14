@@ -258,7 +258,7 @@ export async function listWritingEvaluations(user: { id: number; role: string })
   return db.select({ writingId: writings.id, title: writings.title, level: writings.level, teacherNote: writingAssessments.teacherNote, reviewedAt: writingAssessments.reviewedAt, updatedAt: writings.updatedAt, studentCode: studentAccounts.schoolCode })
     .from(writings).innerJoin(studentAccounts, eq(studentAccounts.userId, writings.studentId))
     .leftJoin(writingAssessments, eq(writingAssessments.writingId, writings.id))
-    .where(user.role === "admin" ? undefined : sql`${studentAccounts.classId} in (select ${teacherClasses.classId} from ${teacherClasses} where ${teacherClasses.teacherUserId} = ${user.id})`)
+    .where(and(eq(studentAccounts.active, true), user.role === "admin" ? undefined : sql`${studentAccounts.classId} in (select ${teacherClasses.classId} from ${teacherClasses} where ${teacherClasses.teacherUserId} = ${user.id})`))
     .orderBy(desc(writings.updatedAt));
 }
 
