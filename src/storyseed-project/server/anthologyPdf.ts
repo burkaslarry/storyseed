@@ -1,8 +1,12 @@
 /*
- * A4 anthology PDF for Chung Sing School, print edition.
- * Builds a CMYK cover, contents, and one or more pages per approved piece.
- * Every colour is DeviceCMYK so the file can go straight to a print shop.
- * Each piece ends with a printed signature and date line for the student.
+ * [F007][S028] Build the A4 anthology PDF for the Chung Sing School print edition.
+ * Input: approved pieces in display order, each with author code, title, level,
+ *        body and optional editor note.
+ * Process: draw a cover, reserve contents pages, then lay out each piece with
+ *          automatic page breaks; fill the contents with real page numbers and
+ *          add a signature/date line at the end of every piece.
+ * Output: a PDF where every colour is DeviceCMYK, every font is an embedded
+ *         Noto Sans CJK TC subset, and no raster images are used.
  */
 import { PDFDocument, degrees, cmyk } from "pdf-lib";
 import { createRequire } from "node:module";

@@ -21,20 +21,21 @@ Chung Sing School P5／P6 寫作平台：學生寫作與修訂、教師校對評
 | [F004] | 班級寫作任務 | 教師「寫作任務」；`server/manageDb.ts` | [S008]–[S009] |
 | [F005] | 15 課寫作及階段版本 | `/student`；`client/src/pages/Home.tsx` | [S010]、[S019] |
 | [F006] | AI 校對及教師評分 | 學生／教師「校對」；`server/writingEvaluation.ts` | [S011]–[S012] |
-| [F007] | 作品集編輯及匯出 | 教師「作品集」；`server/anthologyPdf.ts` | [S013] |
+| [F007] | 作品集編輯及 CMYK PDF 匯出 | 教師「作品集」；`server/anthologyPdf.ts` | [S013]、[S028]–[S029] |
 | [F008] | 管理員學生及教師管理 | `/admin`；`server/manageRouter.ts` | [S014]–[S015] |
 | [F009] | PostgreSQL migration／seed | `drizzle/storyseed_*.sql` | [S016] |
-| [F010] | Vercel 部署及驗證 | `vercel.json`、`api/index.js` | [S017]–[S018]、[S020] |
+| [F010] | 部署及驗證 | `hostinger.cjs`、`vercel.json`、`api/index.js` | [S017]–[S018]、[S020]、[S030] |
 
 ## 架構與部署目錄
 
 React 19 + Vite → Express／tRPC API → Drizzle + `pg` → Render PostgreSQL。
 
-- App 現有部署平台：Vercel；另備 Hostinger Node.js 部署設定，見 `HOSTINGER_DEPLOY.md`。Render 提供 PostgreSQL。
-- Vercel Root Directory：`src/storyseed-project`。
+- App 現有部署平台：Hostinger 受管 Node.js（`hostinger.cjs` 為入口），GitHub `master` 自動部署；Render 提供 PostgreSQL。
+- Vercel 設定（`vercel.json`、`api/index.js`）仍保留作備用部署，不是現行 production。
+- Vercel Root Directory（備用）：`src/storyseed-project`。
 - 本地完整路徑：`/Users/larrylo/SourceProject/storyseed/src/storyseed-project`。
 - Render DB：`dpg-d6iok5q4d50c738643c0-a`；應用資料表以 `storyseed_` 開頭。
-- Production URL：[StorySeed](https://storyseed-project.vercel.app)。本次文件更新未重新驗證線上狀態。
+- Production URL：[StorySeed](https://blue-llama-207349.hostingersite.com)。
 
 ## [F001] 本地啟動
 
@@ -184,12 +185,28 @@ AI coach 以提問、提示及詞彙選擇支援學生，不代寫整篇作品�
 ```text
 /* [F007][S013] 教師編輯作品集並匯出。
  * Input: 作者代號、出版標題、分類、狀態、排序及編輯備註。
- * Process: studio.anthologyDesk／updateAnthology 讀寫資料；作品核准後走 anthology 匯出流程。
- * Output: 編輯後的作品集資料、CSV 或 A4 PDF；PDF 需要可用的檔案儲存 provider。
+ * Process: studio.anthologyDesk／updateAnthology 讀寫資料；作品核准後按顯示排序匯出文集。
+ * Output: 編輯後的作品集資料，或由 anthology.exportPdf 直接下載的 A4 文集 PDF；不再輸出 CSV 出版清單。
  */
 ```
 
-作品集仍有 demo fallback；空的 API 結果不代表畫面必定清空所有示範卡。未提供 EPUB 匯出。
+```text
+/* [F007][S028] 匯出 CMYK 印刷版文集 PDF。
+ * Input: 教師／導師／管理員 session、資料庫內已核准的作品及顯示排序。
+ * Process: anthology.exportPdf 檢查角色並讀取已核准項目；buildAnthologyPdf 依序建立封面、目錄（先預留頁數，最後回填實際頁碼）、每篇作品頁及簽名欄；PDF 以 base64 回傳，瀏覽器即時下載。
+ * Output: chung-sing-anthology-2026-2027.pdf；每篇文末有「學生簽名 Student signature」及「日期 Date」橫線；所有顏色為 DeviceCMYK，Noto Sans CJK TC 字體嵌入，不含點陣圖。
+ */
+```
+
+```text
+/* [F007][S029] 印刷前檢查及限制。
+ * Input: 已下載的文集 PDF。
+ * Process: 檢查頁數、目錄頁碼、簽名線位置、字體嵌入及顏色運算子。
+ * Output: 可直接付印的 CMYK PDF；仍未加入 ICC 輸出意圖（如 FOGRA39）、3mm 出血及裁切線，正式印刷前需另行處理。
+ */
+```
+
+文集 PDF 直接由 tRPC mutation 下載，不經檔案儲存 provider。作品集列表仍有 demo fallback；空的 API 結果不代表畫面必定清空所有示範卡。未提供 EPUB 匯出。
 
 ## [F008] 管理員後台
 
@@ -223,13 +240,21 @@ AI coach 以提問、提示及詞彙選擇支援學生，不代寫整篇作品�
 
 `pnpm db:migrate:render` 與 `pnpm db:seed:render` 指向上述既有 Render DB。前者不執行 init；兩者會執行 drill seed，seed 可能重設 drill 憑證，不適合當成無副作用的健康檢查。script 印出 Applied 並不足以證明 schema 正確，需查詢驗證。
 
-## [F010] Vercel 部署及驗證
+## [F010] 部署及驗證
 
 ```text
-/* [F010][S017] 以 src/storyseed-project 為 Vercel Root Directory 部署。
+/* [F010][S030] 以 Hostinger 部署 production。
+ * Input: GitHub master、Hostinger Node.js app（root 為 src/storyseed-project）、環境變數。
+ * Process: push 到 master 後由 Hostinger 自動 build；如有快取，於 hPanel 手動 redeploy，再檢查登入及 /api/trpc/system.dbPing。
+ * Output: https://blue-llama-207349.hostingersite.com 提供最新版本；部署後仍需實測學生提交及教師評分。
+ */
+```
+
+```text
+/* [F010][S017] 以 src/storyseed-project 為 Vercel Root Directory 部署（備用方案）。
  * Input: Git 版本、Production 環境變數及 vercel.json。
  * Process: pnpm build 建立 dist/public、dist/server/vercel-handler.js 及本地 server bundle。
- * Output: 前端静態資源及 api/index.js 轉接的 Express／tRPC Function。
+ * Output: 前端靜態資源及 api/index.js 轉接的 Express／tRPC Function。
  */
 ```
 
@@ -252,9 +277,27 @@ pnpm build
 
 `test:sraa` 目前主要查詢指定 Render DB：連線、表數、seed、writing／assessment 關聯及 trash row。它不會操作瀏覽器，不會真的測試 API 權限或 archive mutation，因此不能替代 UI／API 端到端驗證。完整 test suite 包含此資料庫測試，執行時需 Render CLI 存取權。
 
+## 依賴安全
+
+本專案使用 pnpm 及 `pnpm-lock.yaml`，沒有 `package-lock.json`；在應用目錄直接執行 `npm audit` 會因缺少 lockfile 而失敗，應改用下列指令。
+
+```bash
+pnpm audit
+pnpm audit --fix
+pnpm install
+pnpm check
+pnpm test
+pnpm build:hostinger
+```
+
+`pnpm audit --fix` 只會把建議的版本範圍加入 `package.json` 的 `pnpm.overrides`，必須再執行 `pnpm install`，並重跑型別檢查、測試及 build 才算完成。
+
+2026-10-29 狀態：`pnpm audit` 回報 0 個已知漏洞（修正前為 4 low、12 moderate）。`pnpm.overrides` 固定了 `mermaid`、`katex`、`mdast-util-to-hast`、`@babel/core`、`@smithy/config-resolver` 及 `postcss-selector-parser`，並把 `vitest` 升至 4.1.12。升級後 `pnpm check` 及 `pnpm build:hostinger` 通過；測試 27 passed、5 skipped，`server/sraa.postgres.test.ts` 仍因需要登入環境而失敗，與依賴升級無關。
+
 ## 交接參考
 
-- `DEPLOY.md`：Vercel build 與部署設定。
+- `HOSTINGER_DEPLOY.md`：Hostinger production 部署及入口設定。
+- `DEPLOY.md`：Vercel build 與備用部署設定。
 - `drizzle/schema.ts`：Drizzle schema。
 - `server/routers.ts`、`server/manageRouter.ts`：API 與角色檢查。
 - `server/manageDb.ts`：帳戶管理與班級任務資料流程。

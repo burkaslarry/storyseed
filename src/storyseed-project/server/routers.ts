@@ -114,6 +114,13 @@ export const appRouter = router({
       }),
   }),
   ...writingRouters,
+  /*
+   * [F007][S028] Anthology editing and CMYK PDF export.
+   * Input: teacher/tutor/admin session, approved anthology items, display order.
+   * Process: exportPdf verifies the role, loads approved items, builds the PDF
+   *          in memory and returns it as base64; no file storage is involved.
+   * Output: chung-sing-anthology-2026-2027.pdf downloaded by the browser.
+   */
   anthology: router({ list: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); return listAnthologyItems(); }), exportContent: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await listAnthologyItems(); return items.map((item, index) => ({ order: item.displayOrder ?? index + 1, authorCode: item.authorCode, title: item.publicationTitle ?? 'Untitled student work', approved: Boolean(item.approved) })); }), exportPdf: protectedProcedure.mutation(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await getAnthologyPdfItems(); if (!items.length) throw new Error('未有已核准作品，請先將作品加入文集。'); const pdf = await buildAnthologyPdf(items); const filename = 'chung-sing-anthology-2026-2027.pdf'; await createAnthologyExport({ createdBy: ctx.user.id, format: 'pdf', storageKey: `inline:${filename}`, itemCount: items.length }); return { filename, base64: pdf.toString('base64'), count: items.length }; }), select: protectedProcedure.input(z.object({ writingId: z.number(), authorCode: z.string().max(32), publicationTitle: z.string().max(180).optional(), displayOrder: z.number().optional(), approved: z.number().min(0).max(1) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['teacher', 'admin']); return selectAnthologyItem(input); }) }),
   accounts: router({
     bulkImport: protectedProcedure.input(z.object({ classCode: z.string().max(32), csv: z.string().max(12000) })).mutation(async ({ ctx, input }) => {
