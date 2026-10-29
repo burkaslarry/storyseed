@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import { assertStudentCodeChanged, parseStudentCsv, generateInitialCode, hashInitialCode, verifyInitialCode } from "./accountProvisioning";
 import { buildAnthologyPdf, resolveCjkFontPath } from "./anthologyPdf";
 
@@ -42,5 +43,34 @@ describe("anthology PDF template", () => {
     const pdf = await buildAnthologyPdf([{ order: 1, authorCode: "P6-01", title: "An Unlucky Day", level: "P6", category: "Story", body: "Last Sunday, Anna was walking while she was playing on her mobile phone.", editorNote: "Keep the clear sequence of events." }]);
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(1000);
+  });
+
+  it("uses DeviceCMYK only, with no RGB or images", async () => {
+    const pdf = await buildAnthologyPdf([{ order: 1, authorCode: "P6-01", title: "我的學校", level: "P6", category: "Story", body: "校園不算大，但每一個角落都充滿回憶。".repeat(40) }]);
+    let offset = 0;
+    let cmyk = 0;
+    let rgb = 0;
+    let images = 0;
+    while ((offset = pdf.indexOf("stream", offset)) !== -1) {
+      let start = offset + 6;
+      if (pdf[start] === 13) start += 1;
+      if (pdf[start] === 10) start += 1;
+      const end = pdf.indexOf("endstream", start);
+      if (end === -1) break;
+      let text = "";
+      try {
+        text = inflateSync(pdf.subarray(start, end)).toString("latin1");
+      } catch {
+        offset = end + 9;
+        continue;
+      }
+      cmyk += (text.match(/[\d.]+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+[kK](?:\s|$)/g) ?? []).length;
+      rgb += (text.match(/[\d.]+\s+[\d.]+\s+[\d.]+\s+[rR][gG](?:\s|$)/g) ?? []).length;
+      images += (text.match(/\bDo\b/g) ?? []).length;
+      offset = end + 9;
+    }
+    expect(cmyk).toBeGreaterThan(0);
+    expect(rgb).toBe(0);
+    expect(images).toBe(0);
   });
 });
