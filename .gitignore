@@ -8,3 +8,5 @@
 .env
 .env.local
 **/node_modules/
+# Local demo screenshots and screen recordings (may contain real student data)
+/document/screenshots/
