@@ -28,6 +28,7 @@ import { ENV } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { invokeLLM } from "./_core/llm";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { addFeedback, archiveTrashAccount, bindClassMember, createAnthologyExport, createImportBatch, createStudentAccount, createWriting, getAnthologyPdfItems, getClassByCode, getClassMember, getClassOverview, getStudentAccountByUsername, getStudentWritingForUser, getUserByEmail, getWritingEvaluation, listAnthologyDeskItems, listAnthologyItems, listAssignments, listClasses, listFeedback, listJourneyPieces, listWritingVersions, saveJourneyPiece, saveWritingEvaluation, saveWritingVersion, selectAnthologyItem, updateAnthologyItem } from "./db";
 import { buildAnthologyPdf } from "./anthologyPdf";
@@ -133,11 +134,17 @@ export const appRouter = router({
     teacherLogin: publicProcedure
       .input(z.object({ email: z.string().email().max(120), password: z.string().min(4).max(64) }))
       .mutation(async ({ ctx, input }) => {
-        assertRateLimit(rateLimitKey(clientIp(ctx.req), "teacherLogin"), 20, 15 * 60 * 1000);
+        /*
+         * A staff room shares one IP, so throttle per email + IP and keep the
+         * address-wide ceiling well above normal staff usage.
+         */
+        const ip = clientIp(ctx.req);
         const email = normalizeTeacherEmail(input.email);
+        assertRateLimit(rateLimitKey(`${ip}|${email}`, "teacherLogin"), 10, 15 * 60 * 1000);
+        assertRateLimit(rateLimitKey(ip, "teacherLoginIp"), 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
         if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
-          throw new Error('電郵或密碼不正確。');
+          throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
         }
         if (user.role === 'admin') {
           throw new Error('管理員請使用 /admin-login 登入。');
@@ -151,11 +158,13 @@ export const appRouter = router({
     adminLogin: publicProcedure
       .input(z.object({ email: z.string().email().max(120), password: z.string().min(4).max(64) }))
       .mutation(async ({ ctx, input }) => {
-        assertRateLimit(rateLimitKey(clientIp(ctx.req), "adminLogin"), 20, 15 * 60 * 1000);
+        const ip = clientIp(ctx.req);
         const email = normalizeTeacherEmail(input.email);
+        assertRateLimit(rateLimitKey(`${ip}|${email}`, "adminLogin"), 10, 15 * 60 * 1000);
+        assertRateLimit(rateLimitKey(ip, "adminLoginIp"), 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
         if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
-          throw new Error('電郵或密碼不正確。');
+          throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
         }
         if (user.role !== 'admin') {
           throw new Error('此帳戶不是管理員權限。');
@@ -164,9 +173,17 @@ export const appRouter = router({
         return { success: true as const };
       }),
     studentLogin: publicProcedure.input(z.object({ username: z.string().min(3).max(64), code: z.string().min(6).max(32) })).mutation(async ({ ctx, input }) => {
-      assertRateLimit(rateLimitKey(clientIp(ctx.req), "studentLogin"), 30, 15 * 60 * 1000);
+      /*
+       * A whole class logs in together through one school IP, so the attempt
+       * budget is per student (IP + username), not per IP. 30 per 15 minutes
+       * for the entire class locked every student out at lesson start.
+       */
+      const ip = clientIp(ctx.req);
+      const loginKey = `${ip}|${input.username.trim().toLowerCase()}`;
+      assertRateLimit(rateLimitKey(loginKey, "studentLogin"), 20, 15 * 60 * 1000);
+      assertRateLimit(rateLimitKey(ip, "studentLoginIp"), 600, 15 * 60 * 1000);
       const account = await (await import('./db')).getStudentAccountByUsername(input.username);
-      if (!account || !account.active || !verifyInitialCode(input.code, account.initialCodeHash)) throw new Error('帳號或初始碼不正確。');
+      if (!account || !account.active || !verifyInitialCode(input.code, account.initialCodeHash)) throw new TRPCError({ code: "UNAUTHORIZED", message: '帳號或初始碼不正確。' });
       const user = await (await import('./db')).createOrGetStudentUser(account.username);
       if (!user) throw new Error('無法建立學生帳戶。');
       const member = await getClassMember(user.id);
