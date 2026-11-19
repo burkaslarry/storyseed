@@ -135,13 +135,13 @@ export const appRouter = router({
       .input(z.object({ email: z.string().email().max(120), password: z.string().min(4).max(64) }))
       .mutation(async ({ ctx, input }) => {
         /*
-         * A staff room shares one IP, so throttle per email + IP and keep the
-         * address-wide ceiling well above normal staff usage.
+         * A staff room shares one IP, so throttle per email. The IP ceiling is
+         * best-effort only: X-Forwarded-For is client-controlled, so security
+         * budgets must never depend on it.
          */
-        const ip = clientIp(ctx.req);
         const email = normalizeTeacherEmail(input.email);
-        assertRateLimit(rateLimitKey(`${ip}|${email}`, "teacherLogin"), 10, 15 * 60 * 1000);
-        assertRateLimit(rateLimitKey(ip, "teacherLoginIp"), 100, 15 * 60 * 1000);
+        assertRateLimit(rateLimitKey(`teacher:${email}`, "teacherLogin"), 10, 15 * 60 * 1000);
+        assertRateLimit(rateLimitKey(clientIp(ctx.req), "teacherLoginIp"), 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
         if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
           throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
@@ -158,10 +158,9 @@ export const appRouter = router({
     adminLogin: publicProcedure
       .input(z.object({ email: z.string().email().max(120), password: z.string().min(4).max(64) }))
       .mutation(async ({ ctx, input }) => {
-        const ip = clientIp(ctx.req);
         const email = normalizeTeacherEmail(input.email);
-        assertRateLimit(rateLimitKey(`${ip}|${email}`, "adminLogin"), 10, 15 * 60 * 1000);
-        assertRateLimit(rateLimitKey(ip, "adminLoginIp"), 100, 15 * 60 * 1000);
+        assertRateLimit(rateLimitKey(`admin:${email}`, "adminLogin"), 10, 15 * 60 * 1000);
+        assertRateLimit(rateLimitKey(clientIp(ctx.req), "adminLoginIp"), 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
         if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
           throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
@@ -175,13 +174,14 @@ export const appRouter = router({
     studentLogin: publicProcedure.input(z.object({ username: z.string().min(3).max(64), code: z.string().min(6).max(32) })).mutation(async ({ ctx, input }) => {
       /*
        * A whole class logs in together through one school IP, so the attempt
-       * budget is per student (IP + username), not per IP. 30 per 15 minutes
-       * for the entire class locked every student out at lesson start.
+       * budget is per student, not per IP. The key deliberately excludes the
+       * IP: X-Forwarded-For is client-controlled, and rotating it must not
+       * reset a student's brute-force budget. The shared-IP ceiling is only a
+       * best-effort scan guard and cannot lock a class out.
        */
-      const ip = clientIp(ctx.req);
-      const loginKey = `${ip}|${input.username.trim().toLowerCase()}`;
-      assertRateLimit(rateLimitKey(loginKey, "studentLogin"), 20, 15 * 60 * 1000);
-      assertRateLimit(rateLimitKey(ip, "studentLoginIp"), 600, 15 * 60 * 1000);
+      const username = input.username.trim().toLowerCase();
+      assertRateLimit(rateLimitKey(`student:${username}`, "studentLogin"), 20, 15 * 60 * 1000);
+      assertRateLimit(rateLimitKey(clientIp(ctx.req), "studentLoginIp"), 600, 15 * 60 * 1000);
       const account = await (await import('./db')).getStudentAccountByUsername(input.username);
       if (!account || !account.active || !verifyInitialCode(input.code, account.initialCodeHash)) throw new TRPCError({ code: "UNAUTHORIZED", message: '帳號或初始碼不正確。' });
       const user = await (await import('./db')).createOrGetStudentUser(account.username);
