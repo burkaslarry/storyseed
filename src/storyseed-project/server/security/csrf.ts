@@ -1,22 +1,32 @@
 import type { Request, Response, NextFunction } from "express";
+import { COOKIE_NAME } from "@shared/const";
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
-/** Block cross-site POSTs that carry session cookies (SameSite=None). */
+/**
+ * Reject cookie-authenticated mutations that do not come from this origin.
+ * Bearer-token clients (no ambient cookie) are not vulnerable to CSRF and are
+ * left alone, as are logins, which run before a session cookie exists.
+ */
 export function csrfOriginGuard(req: Request, res: Response, next: NextFunction) {
-  if (SAFE.has(req.method)) {
+  if (SAFE.has(req.method) || req.headers.authorization) {
     next();
     return;
   }
-  const origin = req.headers.origin;
-  const host = req.headers.host;
-  if (!origin || !host) {
+  const hasSessionCookie = (req.headers.cookie ?? "")
+    .split(";")
+    .some((pair) => pair.trim().startsWith(`${COOKIE_NAME}=`));
+  if (!hasSessionCookie) {
     next();
+    return;
+  }
+  const source = req.headers.origin ?? req.headers.referer;
+  if (!source) {
+    res.status(403).send("Forbidden");
     return;
   }
   try {
-    const originHost = new URL(origin).host;
-    if (originHost === host) {
+    if (new URL(source).host === req.headers.host) {
       next();
       return;
     }
