@@ -10,3 +10,6 @@
 **/node_modules/
 # Local demo screenshots and screen recordings (may contain real student data)
 /document/screenshots/
+# Hosting panel credentials must never be tracked
+/document/stoeryseed-hostiner.txt
+/document/*hostin*
