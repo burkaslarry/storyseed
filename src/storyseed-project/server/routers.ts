@@ -42,8 +42,17 @@ import { sanitizeStudentText } from "./sanitize";
 const PDF_GLOBAL_MAX = 1;
 const DB_UNAVAILABLE_MSG = "系統暫時未能連接資料庫，請稍後再試。";
 const PDF_BUSY_MSG = "文集 PDF 正在匯出中，請稍後再試。課堂進行期間建議課後再匯出。";
-const PDF_BLOCKED_MSG = "課堂安全模式已暫停文集 PDF 匯出。請課後再試，或聯絡管理員關閉 BLOCK_ANTHOLOGY_PDF。";
+const PDF_BLOCKED_MSG = "課堂安全模式已暫停文集 PDF 匯出。請課後再試，或在 Hostinger 將 BLOCK_ANTHOLOGY_PDF 設為 false。";
 const AI_DISABLED_MSG = "AI 功能已關閉。本課堂版本唔需要 BUILT_IN_FORGE_API_URL／BUILT_IN_FORGE_API_KEY。";
+
+/**
+ * Classroom-safe default: PDF export is blocked unless explicitly re-enabled.
+ * Set BLOCK_ANTHOLOGY_PDF=false (or 0) on Hostinger only when exporting after class.
+ */
+export function isAnthologyPdfBlocked() {
+  const raw = (process.env.BLOCK_ANTHOLOGY_PDF ?? "true").trim().toLowerCase();
+  return raw !== "false" && raw !== "0" && raw !== "off" && raw !== "no";
+}
 
 async function assertDatabaseReady() {
   if (!isDatabaseConfigured()) {
@@ -130,7 +139,7 @@ export const appRouter = router({
    */
   anthology: router({ list: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); return listAnthologyItems(); }), exportContent: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await listAnthologyItems(); return items.map((item, index) => ({ order: item.displayOrder ?? index + 1, authorCode: item.authorCode, title: item.publicationTitle ?? 'Untitled student work', approved: Boolean(item.approved) })); }), exportPdf: protectedProcedure.mutation(async ({ ctx }) => {
       await requireRole(ctx, ['teacher', 'tutor', 'admin']);
-      if (process.env.BLOCK_ANTHOLOGY_PDF === "1" || process.env.BLOCK_ANTHOLOGY_PDF === "true") {
+      if (isAnthologyPdfBlocked()) {
         throw new TRPCError({ code: "FORBIDDEN", message: PDF_BLOCKED_MSG });
       }
       return withSlot("anthologyPdf", PDF_GLOBAL_MAX, PDF_BUSY_MSG, async () => {

@@ -27,11 +27,20 @@ Set in hPanel: NODE_ENV=production, the existing Render External PostgreSQL DATA
 
 **Do not set** `BUILT_IN_FORGE_API_URL` / `BUILT_IN_FORGE_API_KEY` for the classroom trial — AI coach is disabled and the app does not need them.
 
-Classroom-safe optional flags:
+Classroom-safe PDF flag (defaults **on** when unset):
 
 | Variable | Effect |
 | --- | --- |
-| `BLOCK_ANTHOLOGY_PDF=true` | Hard-disable anthology PDF export during live lessons |
+| `BLOCK_ANTHOLOGY_PDF` unset / `true` | Block anthology PDF export (classroom default) |
+| `BLOCK_ANTHOLOGY_PDF=false` | Allow PDF export (use after class only) |
+
+In Hostinger hPanel → Node.js app → Environment variables, set:
+
+```text
+BLOCK_ANTHOLOGY_PDF=true
+```
+
+(or leave unset after this release — code defaults to blocked).
 
 Continue using Render DB dpg-d6iok5q4d50c738643c0-a. The handover's MySQL/OAuth descriptions refer to an older app; keep current Postgres and email/password login. Keep secrets out of Git and deployment archives. Hostinger deployment does not require changing the existing Vercel project or its domains.
 
