@@ -15,7 +15,7 @@ Use managed Node.js hosting or an existing VPS. Static-only hosting cannot run l
 | Entry file | `hostinger.cjs` |
 | Start | `pnpm start` |
 | Client assets | `dist/public`, served by Express |
-| Health | `/healthz` |
+| Health | `/healthz` (includes Postgres ping; 503 if DB is down) |
 
 The process binds 0.0.0.0 on the injected PORT, without switching ports in production. The client directory resolves relative to the server bundle. Unknown API paths return JSON 404; SPA paths serve index.html.
 
@@ -24,6 +24,13 @@ Hostinger currently invokes `pnpm run build` for Express. The default build also
 ## [F001][S001] Configure runtime secrets
 
 Set in hPanel: NODE_ENV=production, the existing Render External PostgreSQL DATABASE_URL, PGSSL=true, PGSSLMODE=require and JWT_SECRET. Configure BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY for AI. PDF storage still needs the existing storage provider credentials.
+
+Classroom-safe optional flags:
+
+| Variable | Effect |
+| --- | --- |
+| `BLOCK_ANTHOLOGY_PDF=true` | Hard-disable anthology PDF export during live lessons |
+| `COACH_GLOBAL_MAX=6` | Max simultaneous AI coach calls on the single Node process (default 6) |
 
 Continue using Render DB dpg-d6iok5q4d50c738643c0-a. The handover's MySQL/OAuth descriptions refer to an older app; keep current Postgres and email/password login. Keep secrets out of Git and deployment archives. Hostinger deployment does not require changing the existing Vercel project or its domains.
 
@@ -36,7 +43,7 @@ Titles await school confirmation. tools/curriculum_data.py is the supplied bilin
 ## [F010][S018] Verify before handover
 
 1. Homepage and all student/teacher/admin login paths serve HTML.
-2. /healthz returns ok: true; /api/trpc/system.dbPing separately verifies DB access.
+2. /healthz returns ok: true only when Postgres is reachable (503 otherwise).
 3. Unknown /api paths return JSON 404, not the SPA.
 4. Sign in and save a titled essay; confirm body/title belong to the selected lesson.
 5. Check both levels/languages, unit badges and six stages.

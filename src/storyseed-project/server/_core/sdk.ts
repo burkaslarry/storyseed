@@ -317,10 +317,16 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    // Throttle presence writes: every authenticated tRPC call used to upsert
+    // lastSignedIn, which contended for the 10-connection classroom pool.
+    const LAST_SIGNED_IN_MIN_INTERVAL_MS = 10 * 60 * 1000;
+    const last = user.lastSignedIn ? new Date(user.lastSignedIn).getTime() : 0;
+    if (!last || signedInAt.getTime() - last >= LAST_SIGNED_IN_MIN_INTERVAL_MS) {
+      await db.upsertUser({
+        openId: user.openId,
+        lastSignedIn: signedInAt,
+      });
+    }
 
     return user;
   }

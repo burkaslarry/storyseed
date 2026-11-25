@@ -5,7 +5,7 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
-import { startLogin } from "./const";
+import { redirectToSchoolLogin } from "./lib/loginRedirects";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -18,7 +18,8 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
-  startLogin();
+  // School password logins — never send the class to Manus OAuth.
+  redirectToSchoolLogin();
 };
 
 queryClient.getQueryCache().subscribe(event => {

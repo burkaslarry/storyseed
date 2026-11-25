@@ -8,6 +8,7 @@ import { createContext } from "./context";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { csrfOriginGuard } from "../security/csrf";
+import { checkDatabaseHealth } from "../db";
 
 export function createApp(): Express {
   const app = express();
@@ -22,7 +23,18 @@ export function createApp(): Express {
     }
     next();
   });
-  app.get("/healthz", (_req, res) => res.json({ ok: true }));
+  /*
+   * Hostinger probes /healthz. Include a Postgres ping so a wedged DB does not
+   * look "healthy" while the whole class gets fake logins / hung saves.
+   */
+  app.get("/healthz", async (_req, res) => {
+    const db = await checkDatabaseHealth();
+    if (!db.ok) {
+      res.status(503).json({ ok: false, database: db });
+      return;
+    }
+    res.json({ ok: true, database: db });
+  });
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ limit: "1mb", extended: true }));
   app.use(csrfOriginGuard);
