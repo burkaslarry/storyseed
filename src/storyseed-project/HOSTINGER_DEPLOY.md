@@ -23,14 +23,15 @@ Hostinger currently invokes `pnpm run build` for Express. The default build also
 
 ## [F001][S001] Configure runtime secrets
 
-Set in hPanel: NODE_ENV=production, the existing Render External PostgreSQL DATABASE_URL, PGSSL=true, PGSSLMODE=require and JWT_SECRET. Configure BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY for AI. PDF storage still needs the existing storage provider credentials.
+Set in hPanel: NODE_ENV=production, the existing Render External PostgreSQL DATABASE_URL, PGSSL=true, PGSSLMODE=require and JWT_SECRET.
+
+**Do not set** `BUILT_IN_FORGE_API_URL` / `BUILT_IN_FORGE_API_KEY` for the classroom trial — AI coach is disabled and the app does not need them.
 
 Classroom-safe optional flags:
 
 | Variable | Effect |
 | --- | --- |
 | `BLOCK_ANTHOLOGY_PDF=true` | Hard-disable anthology PDF export during live lessons |
-| `COACH_GLOBAL_MAX=6` | Max simultaneous AI coach calls on the single Node process (default 6) |
 
 Continue using Render DB dpg-d6iok5q4d50c738643c0-a. The handover's MySQL/OAuth descriptions refer to an older app; keep current Postgres and email/password login. Keep secrets out of Git and deployment archives. Hostinger deployment does not require changing the existing Vercel project or its domains.
 
@@ -47,6 +48,6 @@ Titles await school confirmation. tools/curriculum_data.py is the supplied bilin
 3. Unknown /api paths return JSON 404, not the SPA.
 4. Sign in and save a titled essay; confirm body/title belong to the selected lesson.
 5. Check both levels/languages, unit badges and six stages.
-6. Verify management, AI planning and PDF storage separately.
+6. Verify management and PDF export separately. AI coach is disabled.
 
 Local build success does not prove a Hostinger deployment. Record the hPanel deployment result and live URL after deployment.

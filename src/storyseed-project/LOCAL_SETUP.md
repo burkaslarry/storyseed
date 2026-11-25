@@ -47,19 +47,17 @@ pnpm dev
 
 在瀏覽器開啟：<http://localhost:3000/>
 
-這個模式可以查看示範工作區及主要介面，但 AI、正式登入及跨裝置保存不會完整運作。
+這個模式可以查看示範工作區及主要介面，但正式登入及跨裝置保存不會完整運作。課堂試行版已關閉 AI coach。
 
 ### 完整使用所需設定
 
-要使用正式 AI、學生／教師登入及資料保存，需要在 `.env` 填入：
+要使用學生／教師登入及資料保存，需要在 `.env` 填入：
 
-- `DATABASE_URL`：MySQL 或 TiDB 資料庫連接字串
+- `DATABASE_URL`：PostgreSQL（Render）連接字串
 - `JWT_SECRET`：至少 32 個字符的本機 session secret
-- `VITE_APP_ID`：登入服務的 application ID
-- `OAUTH_SERVER_URL`：登入服務網址
-- `BUILT_IN_FORGE_API_URL`：AI 服務 API 網址
-- `BUILT_IN_FORGE_API_KEY`：AI 服務 API key
-- `OWNER_OPEN_ID`：管理員識別碼
+- `PGSSL=true`、`PGSSLMODE=require`（連線 Render 時）
+
+唔需要設定 `BUILT_IN_FORGE_API_URL`／`BUILT_IN_FORGE_API_KEY`（AI 已關閉）。
 
 **不要把 `.env`、API key、資料庫密碼上載到 GitHub 或傳給學生。**
 
@@ -105,9 +103,9 @@ pnpm db:push
 - 你的電腦必須長期開機及連接網絡；
 - 學生在校外不能穩定連入；
 - 本機資料沒有自動備份；
-- AI API key 及資料庫需要安全保存。
+- 資料庫密碼需要安全保存。
 
-學校正式使用時，應部署到 Hostinger 或其他伺服器，再配合正式 MySQL、備份及 HTTPS。
+學校正式使用時，應部署到 Hostinger 或其他伺服器，再配合 Render Postgres、備份及 HTTPS。
 
 ## Troubleshooting
 
@@ -125,4 +123,4 @@ npm install -g pnpm
 
 ### AI 沒有回覆
 
-確認 `.env` 中的 `BUILT_IN_FORGE_API_URL` 及 `BUILT_IN_FORGE_API_KEY` 已填寫，並重新啟動 `pnpm dev`。
+課堂試行版已關閉 AI coach，唔需要設定 Forge API。學生寫作、教師評分與作品集不依賴 AI。

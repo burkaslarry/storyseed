@@ -1,10 +1,7 @@
 /*
- * Process environment used by auth, the database, and the built-in LLM.
- * Empty strings mean demo mode: the UI loads, but login, saves, and live
- * AI answers do not. See LOCAL_ENV_TEMPLATE.txt.
- *
- * UNFINISHED for hosting outside Manus: OAuth, the Forge LLM, and storage
- * still expect these Manus variables. There is no second provider yet.
+ * Process environment used by auth and the database.
+ * Classroom trial does not use the Forge LLM — writingCoach is disabled and
+ * BUILT_IN_FORGE_* is optional (only needed by leftover Manus storage helpers).
  */
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
@@ -13,6 +10,8 @@ export const ENV = {
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
+  /** Optional. Not required for classroom login/write/PDF. */
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
+  /** Optional. Not required for classroom login/write/PDF. */
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
 };
