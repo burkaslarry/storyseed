@@ -1,10 +1,10 @@
 /*
  * App routes.
- *   /                demo StorySeed studio
- *   /teacher-login   staff OAuth entry
+ *   /                demo StorySeed studio (no school data writes)
+ *   /teacher-login   staff email + password
  *   /student-login   school username + one-time code
- *   /teacher         teacher studio (same Home component, teacher mode)
- *   /student         student studio (same Home component, student mode)
+ *   /teacher         teacher studio — requires school session
+ *   /student         student studio — requires school session
  * Unknown paths render NotFound.
  */
 import { Toaster } from "@/components/ui/sonner";

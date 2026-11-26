@@ -27,6 +27,7 @@ import { ENV } from "./_core/env";
 
 let _pool: pg.Pool | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
+let _dbInit: Promise<ReturnType<typeof drizzle> | null> | null = null;
 
 function poolConfig(): pg.PoolConfig | null {
   const url = process.env.DATABASE_URL ?? ENV.databaseUrl;
@@ -39,24 +40,39 @@ function poolConfig(): pg.PoolConfig | null {
     connectionString: url,
     ssl: sslRequired ? { rejectUnauthorized: false } : undefined,
     max: 10,
+    // Fail classroom requests instead of waiting forever when Render stalls.
+    connectionTimeoutMillis: 5_000,
+    idleTimeoutMillis: 30_000,
   };
 }
 
+/** True when DATABASE_URL is set (even if the pool is currently down). */
+export function isDatabaseConfigured() {
+  return Boolean(process.env.DATABASE_URL ?? ENV.databaseUrl);
+}
+
 export async function getDb() {
-  if (!_db) {
+  if (_db) return _db;
+  if (_dbInit) return _dbInit;
+  _dbInit = (async () => {
     const config = poolConfig();
     if (!config) return null;
     try {
-      _pool = new pg.Pool(config);
-      await _pool.query("SELECT 1");
-      _db = drizzle(_pool);
+      const pool = new pg.Pool(config);
+      await pool.query("SELECT 1");
+      _pool = pool;
+      _db = drizzle(pool);
+      return _db;
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _pool = null;
       _db = null;
+      return null;
+    } finally {
+      _dbInit = null;
     }
-  }
-  return _db;
+  })();
+  return _dbInit;
 }
 
 export async function checkDatabaseHealth(): Promise<{ ok: boolean; detail?: string }> {
@@ -148,23 +164,6 @@ export async function createWriting(input: {
   const lessonNo = input.assignmentId;
   const student = await db.select().from(students).where(eq(students.userId, input.studentId)).limit(1);
   const level = input.level ?? student[0]?.level ?? "P5";
-  const existing = await db
-    .select()
-    .from(writings)
-    .where(and(eq(writings.studentId, input.studentId), eq(writings.lessonNo, lessonNo)))
-    .limit(1);
-  if (existing[0]) {
-    await db
-      .update(writings)
-      .set({
-        title: input.title ?? existing[0].title,
-        stage: input.stage,
-        status: input.status ?? existing[0].status,
-        updatedAt: new Date(),
-      })
-      .where(eq(writings.id, existing[0].id));
-    return existing[0].id;
-  }
   const [row] = await db
     .insert(writings)
     .values({
@@ -174,6 +173,15 @@ export async function createWriting(input: {
       title: input.title,
       stage: input.stage,
       status: input.status ?? "draft",
+    })
+    .onConflictDoUpdate({
+      target: [writings.studentId, writings.lessonNo],
+      set: {
+        title: input.title ?? undefined,
+        stage: input.stage,
+        status: input.status ?? "draft",
+        updatedAt: new Date(),
+      },
     })
     .returning({ id: writings.id });
   return row.id;

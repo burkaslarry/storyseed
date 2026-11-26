@@ -1,10 +1,6 @@
 /*
- * Process environment used by auth, the database, and the built-in LLM.
- * Empty strings mean demo mode: the UI loads, but login, saves, and live
- * AI answers do not. See LOCAL_ENV_TEMPLATE.txt.
- *
- * UNFINISHED for hosting outside Manus: OAuth, the Forge LLM, and storage
- * still expect these Manus variables. There is no second provider yet.
+ * Process environment used by auth, database, and DeepSeek writing coach.
+ * Writing coach uses DEEPSEEK_* only — do not rely on BUILT_IN_FORGE_*.
  */
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
@@ -13,6 +9,11 @@ export const ENV = {
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
+  /** DeepSeek OpenAI-compatible API (writingCoach). */
+  deepseekApiUrl: (process.env.DEEPSEEK_API_URL ?? "https://api.deepseek.com").trim(),
+  deepseekApiKey: (process.env.DEEPSEEK_API_KEY ?? "").trim(),
+  deepseekModel: (process.env.DEEPSEEK_MODEL ?? "deepseek-chat").trim() || "deepseek-chat",
+  /** Leftover Manus helpers only — not used by writingCoach. */
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
 };

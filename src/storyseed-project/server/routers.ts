@@ -9,10 +9,7 @@
  *   teaching          teacher comments on a writing
  *   anthology         select, list, content export, PDF export
  *   accounts          CSV import, student login, first-code change
- *   writingCoach      evaluate, suggest, and the lesson "ask" coach
- *
- * The coach must not write a complete story. `safeWritingRules` and
- * `sanitizeStudentText` enforce that before any LLM call.
+ *   writingCoach      DeepSeek writing coach (ask / suggest / improve)
  *
  * UNFINISHED:
  * - No procedure creates a class. Bulk import fails until a class row exists.
@@ -24,13 +21,11 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
-import { ENV } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
-import { invokeLLM } from "./_core/llm";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { addFeedback, archiveTrashAccount, bindClassMember, createAnthologyExport, createImportBatch, createStudentAccount, createWriting, getAnthologyPdfItems, getClassByCode, getClassMember, getClassOverview, getStudentAccountByUsername, getStudentWritingForUser, getUserByEmail, getWritingEvaluation, listAnthologyDeskItems, listAnthologyItems, listAssignments, listClasses, listFeedback, listJourneyPieces, listWritingVersions, saveJourneyPiece, saveWritingEvaluation, saveWritingVersion, selectAnthologyItem, updateAnthologyItem } from "./db";
+import { addFeedback, archiveTrashAccount, bindClassMember, createAnthologyExport, createImportBatch, createStudentAccount, createWriting, getAnthologyPdfItems, getClassByCode, getClassMember, getClassOverview, getStudentAccountByUsername, getStudentWritingForUser, getUserByEmail, getWritingEvaluation, isDatabaseConfigured, listAnthologyDeskItems, listAnthologyItems, listAssignments, listClasses, listFeedback, listJourneyPieces, listWritingVersions, saveJourneyPiece, saveWritingEvaluation, saveWritingVersion, selectAnthologyItem, updateAnthologyItem } from "./db";
 import { buildAnthologyPdf } from "./anthologyPdf";
 import { assertStudentCodeChanged, hashInitialCode, normalizeTeacherEmail, parseStudentCsv, generateInitialCode, verifyInitialCode, verifyPasswordMd5 } from "./accountProvisioning";
 import { setSessionCookie } from "./sessionAuth";
@@ -39,12 +34,38 @@ import { createManageRouter } from "./manageRouter";
 import { createWritingRouters } from "./writingRouters";
 import { assertTeacherClassAccess } from "./security/classAccess";
 import { assertRateLimit, clientIp, rateLimitKey } from "./security/rateLimit";
+import { withSlot } from "./security/concurrency";
 import { assertWritingStudentWrite } from "./security/writingAccess";
 import { sanitizeStudentText } from "./sanitize";
+import { invokeLLM } from "./_core/llm";
+
+/** Max simultaneous LLM calls on the single classroom Node process. */
+const COACH_GLOBAL_MAX = Number(process.env.COACH_GLOBAL_MAX ?? 6);
+const PDF_GLOBAL_MAX = 1;
+const DB_UNAVAILABLE_MSG = "系統暫時未能連接資料庫，請稍後再試。";
+const COACH_BUSY_MSG = "AI 助教現正繁忙，請稍後再試（課堂請分批提問，勿全班同時按）。";
+const PDF_BUSY_MSG = "文集 PDF 正在匯出中，請稍後再試。課堂進行期間建議課後再匯出。";
+const PDF_BLOCKED_MSG = "課堂安全模式已暫停文集 PDF 匯出。請課後再試，或在 Hostinger 將 BLOCK_ANTHOLOGY_PDF 設為 false。";
+const supportMode = z.enum(["idea", "language", "structure", "proofread"]);
+const safeWritingRules = `You are StorySeed, a supportive AI writing coach for Hong Kong primary students in P5/P6. You must never write a complete story, paragraph, essay, poem, dialogue scene, or replacement draft for the student. You may ask guiding questions, offer up to five vocabulary choices with short explanations, point out one or two structural observations, or identify proofreading issues without rewriting the whole text. Always preserve the student's original voice and remind them to make the final choices. Never ask for or infer the student's real name, phone number, email, address, school ID, family information, or other sensitive personal data. If the student asks you to write the whole piece, politely refuse and offer a small next step instead.`;
+
+/**
+ * Classroom-safe default: PDF export is blocked unless explicitly re-enabled.
+ * Set BLOCK_ANTHOLOGY_PDF=false (or 0) on Hostinger only when exporting after class.
+ */
+export function isAnthologyPdfBlocked() {
+  const raw = (process.env.BLOCK_ANTHOLOGY_PDF ?? "true").trim().toLowerCase();
+  return raw !== "false" && raw !== "0" && raw !== "off" && raw !== "no";
+}
+
+async function assertDatabaseReady() {
+  if (!isDatabaseConfigured()) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DB_UNAVAILABLE_MSG });
+  }
+}
 
 export { sanitizeStudentText };
 
-const supportMode = z.enum(["idea", "language", "structure", "proofread"]);
 export async function requireRole(ctx: { user: { id: number; role: string; openId: string | null } }, allowed: Array<'student' | 'teacher' | 'tutor' | 'admin'>) {
   if (ctx.user.role === 'disabled') throw new Error('帳戶已停用。');
   if (ctx.user.role === 'admin' && allowed.includes('admin')) return;
@@ -68,8 +89,6 @@ export async function requireRole(ctx: { user: { id: number; role: string; openI
 }
 
 const writingRouters = createWritingRouters(requireRole);
-
-const safeWritingRules = `You are StorySeed, a supportive AI writing coach for Hong Kong primary students in P5/P6. You must never write a complete story, paragraph, essay, poem, dialogue scene, or replacement draft for the student. You may ask guiding questions, offer up to five vocabulary choices with short explanations, point out one or two structural observations, or identify proofreading issues without rewriting the whole text. Always preserve the student's original voice and remind them to make the final choices. Never ask for or infer the student's real name, phone number, email, address, school ID, family information, or other sensitive personal data. If the student asks you to write the whole piece, politely refuse and offer a small next step instead.`;
 
 export const appRouter = router({
   system: systemRouter,
@@ -122,7 +141,20 @@ export const appRouter = router({
    *          in memory and returns it as base64; no file storage is involved.
    * Output: chung-sing-anthology-2026-2027.pdf downloaded by the browser.
    */
-  anthology: router({ list: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); return listAnthologyItems(); }), exportContent: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await listAnthologyItems(); return items.map((item, index) => ({ order: item.displayOrder ?? index + 1, authorCode: item.authorCode, title: item.publicationTitle ?? 'Untitled student work', approved: Boolean(item.approved) })); }), exportPdf: protectedProcedure.mutation(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await getAnthologyPdfItems(); if (!items.length) throw new Error('未有已核准作品，請先將作品加入文集。'); const pdf = await buildAnthologyPdf(items); const filename = 'chung-sing-anthology-2026-2027.pdf'; await createAnthologyExport({ createdBy: ctx.user.id, format: 'pdf', storageKey: `inline:${filename}`, itemCount: items.length }); return { filename, base64: pdf.toString('base64'), count: items.length }; }), select: protectedProcedure.input(z.object({ writingId: z.number(), authorCode: z.string().max(32), publicationTitle: z.string().max(180).optional(), displayOrder: z.number().optional(), approved: z.number().min(0).max(1) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['teacher', 'admin']); return selectAnthologyItem(input); }) }),
+  anthology: router({ list: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); return listAnthologyItems(); }), exportContent: protectedProcedure.query(async ({ ctx }) => { await requireRole(ctx, ['teacher', 'tutor', 'admin']); const items = await listAnthologyItems(); return items.map((item, index) => ({ order: item.displayOrder ?? index + 1, authorCode: item.authorCode, title: item.publicationTitle ?? 'Untitled student work', approved: Boolean(item.approved) })); }), exportPdf: protectedProcedure.mutation(async ({ ctx }) => {
+      await requireRole(ctx, ['teacher', 'tutor', 'admin']);
+      if (isAnthologyPdfBlocked()) {
+        throw new TRPCError({ code: "FORBIDDEN", message: PDF_BLOCKED_MSG });
+      }
+      return withSlot("anthologyPdf", PDF_GLOBAL_MAX, PDF_BUSY_MSG, async () => {
+        const items = await getAnthologyPdfItems();
+        if (!items.length) throw new Error('未有已核准作品，請先將作品加入文集。');
+        const pdf = await buildAnthologyPdf(items);
+        const filename = 'chung-sing-anthology-2026-2027.pdf';
+        await createAnthologyExport({ createdBy: ctx.user.id, format: 'pdf', storageKey: `inline:${filename}`, itemCount: items.length });
+        return { filename, base64: pdf.toString('base64'), count: items.length };
+      });
+    }), select: protectedProcedure.input(z.object({ writingId: z.number(), authorCode: z.string().max(32), publicationTitle: z.string().max(180).optional(), displayOrder: z.number().optional(), approved: z.number().min(0).max(1) })).mutation(async ({ ctx, input }) => { await requireRole(ctx, ['teacher', 'admin']); return selectAnthologyItem(input); }) }),
   accounts: router({
     bulkImport: protectedProcedure.input(z.object({ classCode: z.string().max(32), csv: z.string().max(12000) })).mutation(async ({ ctx, input }) => {
       await requireRole(ctx, ['teacher', 'tutor', 'admin']);
@@ -139,11 +171,18 @@ export const appRouter = router({
          * best-effort only: X-Forwarded-For is client-controlled, so security
          * budgets must never depend on it.
          */
+        await assertDatabaseReady();
         const email = normalizeTeacherEmail(input.email);
         assertRateLimit(rateLimitKey(`teacher:${email}`, "teacherLogin"), 10, 15 * 60 * 1000);
         assertRateLimit(rateLimitKey(clientIp(ctx.req), "teacherLoginIp"), 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
-        if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
+        if (!user) {
+          // Distinguish "DB returned nothing because pool is dead" from bad credentials.
+          const { getDb } = await import("./db");
+          if (!(await getDb())) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DB_UNAVAILABLE_MSG });
+          throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
+        }
+        if (!verifyPasswordMd5(input.password, user.passwordHash)) {
           throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
         }
         if (user.role === 'admin') {
@@ -158,11 +197,17 @@ export const appRouter = router({
     adminLogin: publicProcedure
       .input(z.object({ email: z.string().email().max(120), password: z.string().min(4).max(64) }))
       .mutation(async ({ ctx, input }) => {
+        await assertDatabaseReady();
         const email = normalizeTeacherEmail(input.email);
         assertRateLimit(rateLimitKey(`admin:${email}`, "adminLogin"), 10, 15 * 60 * 1000);
         assertRateLimit(rateLimitKey(clientIp(ctx.req), "adminLoginIp"), 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
-        if (!user || !verifyPasswordMd5(input.password, user.passwordHash)) {
+        if (!user) {
+          const { getDb } = await import("./db");
+          if (!(await getDb())) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DB_UNAVAILABLE_MSG });
+          throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
+        }
+        if (!verifyPasswordMd5(input.password, user.passwordHash)) {
           throw new TRPCError({ code: "UNAUTHORIZED", message: '電郵或密碼不正確。' });
         }
         if (user.role !== 'admin') {
@@ -179,12 +224,15 @@ export const appRouter = router({
        * reset a student's brute-force budget. The shared-IP ceiling is only a
        * best-effort scan guard and cannot lock a class out.
        */
+      await assertDatabaseReady();
       const username = input.username.trim().toLowerCase();
       assertRateLimit(rateLimitKey(`student:${username}`, "studentLogin"), 20, 15 * 60 * 1000);
       assertRateLimit(rateLimitKey(clientIp(ctx.req), "studentLoginIp"), 600, 15 * 60 * 1000);
-      const account = await (await import('./db')).getStudentAccountByUsername(input.username);
+      const { getDb, getStudentAccountByUsername: getAccount, createOrGetStudentUser } = await import("./db");
+      if (!(await getDb())) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DB_UNAVAILABLE_MSG });
+      const account = await getAccount(username);
       if (!account || !account.active || !verifyInitialCode(input.code, account.initialCodeHash)) throw new TRPCError({ code: "UNAUTHORIZED", message: '帳號或初始碼不正確。' });
-      const user = await (await import('./db')).createOrGetStudentUser(account.username);
+      const user = await createOrGetStudentUser(account.username);
       if (!user) throw new Error('無法建立學生帳戶。');
       const member = await getClassMember(user.id);
       if (!member) await bindClassMember({ classId: account.classId, userId: user.id, schoolCode: account.schoolCode, role: 'student' });
@@ -261,30 +309,101 @@ export const appRouter = router({
         return { trashId: await archiveTrashAccount(input.username, ctx.user.id, input.reason) };
       }),
   }),
+  /*
+   * DeepSeek writing coach (DEEPSEEK_API_KEY). Does not use BUILT_IN_FORGE_*.
+   */
   writingCoach: router({
-    /* [F005][S019] Offer short planning choices while preserving the student's own writing.
-     * Input: A student's idea, level and language.
-     * Process: Redact identifying details, rate-limit and validate structured AI suggestions.
-     * Output: Three short alternatives and one observation, never a replacement essay.
-     */
-    improve: protectedProcedure.input(z.object({ plan: z.string().min(1).max(3000), level: z.enum(["P5", "P6"]), lang: z.enum(["zh", "en"]) })).mutation(async ({ ctx, input }) => {
-      assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000);
-      const response = await invokeLLM({
-        messages: [
-          { role: "system", content: safeWritingRules + `\nGive exactly three short planning choices and one observation for ${input.level}. Each choice is a guiding question or a direction, not a story paragraph. Respond in ${input.lang === "zh" ? "Traditional Chinese" : "simple English"}.` },
-          { role: "user", content: sanitizeStudentText(input.plan) },
-        ],
-        response_format: { type: "json_schema", json_schema: { name: "planning_choices", strict: true, schema: {
-          type: "object", properties: {
-            alternatives: { type: "array", minItems: 3, maxItems: 3, items: { type: "object", properties: { title: { type: "string" }, direction: { type: "string" } }, required: ["title", "direction"], additionalProperties: false } },
-            observation: { type: "string" },
-          }, required: ["alternatives", "observation"], additionalProperties: false,
-        } } },
-      });
-      const content = response.choices?.[0]?.message?.content;
-      if (typeof content !== "string") throw new Error("AI planning response unavailable");
-      return z.object({ alternatives: z.array(z.object({ title: z.string().max(120), direction: z.string().max(500) })).length(3), observation: z.string().max(600) }).parse(JSON.parse(content));
-    }),
-    evaluate: protectedProcedure.input(z.object({ draft: z.string().max(6000), level: z.enum(["P5", "P6"]) })).mutation(async () => { throw new Error("評分已改由教師人手完成，請提交作品等待教師評分。"); }), suggest: protectedProcedure.input(z.object({ mode: supportMode, draft: z.string().max(6000), level: z.enum(["P5", "P6"]) })).mutation(async ({ ctx, input }) => { assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000); const modeInstruction = { idea: "Give two or three guiding questions that help the student develop the next story idea. Do not provide plot paragraphs.", language: "Give up to five age-appropriate vocabulary options and explain when each may fit. Do not rewrite the student's sentences.", structure: "Point out one strength and ask two questions about beginning, problem, turning point, or ending. Do not create a plot for the student.", proofread: "Identify up to three proofreading areas to check, quoting only very short fragments if necessary. Explain the rule and let the student revise it themselves." }[input.mode]; const response = await invokeLLM({ messages: [{ role: "system", content: `${safeWritingRules}\n\nTask: ${modeInstruction}\nUse clear, encouraging language suitable for ${input.level}. Respond in Traditional Chinese, with English examples only when useful.` }, { role: "user", content: `Here is the student's draft. Treat it as private writing content and do not request identifying details:\n\n${sanitizeStudentText(input.draft)}` }] }); const content = response.choices?.[0]?.message?.content; return { suggestion: typeof content === "string" ? content : "請先寫下你想保留的句子，再選一個小地方修改。" }; }), ask: protectedProcedure.input(z.object({ question: z.string().min(1).max(1000), level: z.enum(["P5", "P6"]), lang: z.enum(["zh", "en"]) })).mutation(async ({ ctx, input }) => { assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000); const languageRule = input.lang === "zh" ? "Respond in Traditional Chinese, with English examples only when useful." : "Respond in clear, simple English suitable for primary students."; const response = await invokeLLM({ messages: [{ role: "system", content: `${safeWritingRules}\n\nYou are answering one short question from a student about their own creative writing. Never write a complete story, paragraph, poem, essay or dialogue scene for them. In a few short sentences: ask one guiding question, offer 1-3 concrete directions or choices, and remind them the final sentences are theirs. ${languageRule} Suitable for ${input.level}.` }, { role: "user", content: `Student's question:\n${sanitizeStudentText(input.question)}` }] }); const content = response.choices?.[0]?.message?.content; return { answer: typeof content === "string" ? content : (input.lang === "zh" ? "請再講清楚少少你想問嘅部分，我會用問題引導你繼續。" : "Please tell me a little more about what you want to ask, and I will guide you with questions.") }; }) }),
+    improve: protectedProcedure
+      .input(z.object({ plan: z.string().min(1).max(3000), level: z.enum(["P5", "P6"]), lang: z.enum(["zh", "en"]) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireRole(ctx, ["student", "teacher", "tutor", "admin"]);
+        assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000);
+        return withSlot("writingCoach", COACH_GLOBAL_MAX, COACH_BUSY_MSG, async () => {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content:
+                  safeWritingRules +
+                  `\nGive exactly three short planning choices and one observation for ${input.level}. Each choice is a guiding question or a direction, not a story paragraph. Respond in ${input.lang === "zh" ? "Traditional Chinese" : "simple English"}. Return JSON only with shape {"alternatives":[{"title":"...","direction":"..."},{"title":"...","direction":"..."},{"title":"...","direction":"..."}],"observation":"..."}.`,
+              },
+              { role: "user", content: sanitizeStudentText(input.plan) },
+            ],
+            response_format: { type: "json_object" },
+          });
+          const content = response.choices?.[0]?.message?.content;
+          if (typeof content !== "string") throw new Error("AI planning response unavailable");
+          return z
+            .object({
+              alternatives: z.array(z.object({ title: z.string().max(120), direction: z.string().max(500) })).length(3),
+              observation: z.string().max(600),
+            })
+            .parse(JSON.parse(content));
+        });
+      }),
+    evaluate: protectedProcedure
+      .input(z.object({ draft: z.string().max(6000), level: z.enum(["P5", "P6"]) }))
+      .mutation(async () => {
+        throw new TRPCError({ code: "FORBIDDEN", message: "評分已改由教師人手完成，請提交作品等待教師評分。" });
+      }),
+    suggest: protectedProcedure
+      .input(z.object({ mode: supportMode, draft: z.string().max(6000), level: z.enum(["P5", "P6"]) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireRole(ctx, ["student", "teacher", "tutor", "admin"]);
+        assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000);
+        return withSlot("writingCoach", COACH_GLOBAL_MAX, COACH_BUSY_MSG, async () => {
+          const modeInstruction = {
+            idea: "Give two or three guiding questions that help the student develop the next story idea. Do not provide plot paragraphs.",
+            language: "Give up to five age-appropriate vocabulary options and explain when each may fit. Do not rewrite the student's sentences.",
+            structure: "Point out one strength and ask two questions about beginning, problem, turning point, or ending. Do not create a plot for the student.",
+            proofread: "Identify up to three proofreading areas to check, quoting only very short fragments if necessary. Explain the rule and let the student revise it themselves.",
+          }[input.mode];
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${safeWritingRules}\n\nTask: ${modeInstruction}\nUse clear, encouraging language suitable for ${input.level}. Respond in Traditional Chinese, with English examples only when useful.`,
+              },
+              {
+                role: "user",
+                content: `Here is the student's draft. Treat it as private writing content and do not request identifying details:\n\n${sanitizeStudentText(input.draft)}`,
+              },
+            ],
+          });
+          const content = response.choices?.[0]?.message?.content;
+          return { suggestion: typeof content === "string" ? content : "請先寫下你想保留的句子，再選一個小地方修改。" };
+        });
+      }),
+    ask: protectedProcedure
+      .input(z.object({ question: z.string().min(1).max(1000), level: z.enum(["P5", "P6"]), lang: z.enum(["zh", "en"]) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireRole(ctx, ["student", "teacher", "tutor", "admin"]);
+        assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000);
+        return withSlot("writingCoach", COACH_GLOBAL_MAX, COACH_BUSY_MSG, async () => {
+          const languageRule =
+            input.lang === "zh"
+              ? "Respond in Traditional Chinese, with English examples only when useful."
+              : "Respond in clear, simple English suitable for primary students.";
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${safeWritingRules}\n\nYou are answering one short question from a student about their own creative writing. Never write a complete story, paragraph, poem, essay or dialogue scene for them. In a few short sentences: ask one guiding question, offer 1-3 concrete directions or choices, and remind them the final sentences are theirs. ${languageRule} Suitable for ${input.level}.`,
+              },
+              { role: "user", content: `Student's question:\n${sanitizeStudentText(input.question)}` },
+            ],
+          });
+          const content = response.choices?.[0]?.message?.content;
+          return {
+            answer:
+              typeof content === "string"
+                ? content
+                : input.lang === "zh"
+                  ? "請再講清楚少少你想問嘅部分，我會用問題引導你繼續。"
+                  : "Please tell me a little more about what you want to ask, and I will guide you with questions.",
+          };
+        });
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;

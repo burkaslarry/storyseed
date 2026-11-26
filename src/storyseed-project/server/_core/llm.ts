@@ -212,14 +212,14 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+const resolveApiUrl = () => {
+  const base = ENV.deepseekApiUrl.replace(/\/$/, "") || "https://api.deepseek.com";
+  return `${base}/v1/chat/completions`;
+};
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!ENV.deepseekApiKey) {
+    throw new Error("DEEPSEEK_API_KEY is not configured");
   }
 };
 
@@ -268,9 +268,11 @@ const normalizeResponseFormat = ({
   };
 };
 
-const RETRY_MAX_RETRIES = 4;
+const RETRY_MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 500;
-const RETRY_MAX_DELAY_MS = 30_000;
+const RETRY_MAX_DELAY_MS = 8_000;
+/** Hard ceiling so a hung Forge socket cannot pin a classroom request. */
+export const LLM_FETCH_TIMEOUT_MS = 15_000;
 
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
@@ -282,12 +284,10 @@ const parseRetryAfter = (value: string | null): number | undefined => {
   const seconds = Number(value);
   if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
   const at = Date.parse(value);
-  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now());
+  if (Number.isNaN(at)) return undefined;
+  return Math.max(0, at - Date.now());
 };
 
-// Equal-jitter exponential backoff. The cap/2 floor guarantees a minimum
-// delay so a misbehaving caller loop slows down instead of hammering the
-// upstream while it keeps returning errors.
 const computeBackoffDelay = (
   attempt: number,
   retryAfterMs?: number
@@ -297,8 +297,29 @@ const computeBackoffDelay = (
   return Math.min(Math.max(jittered, retryAfterMs ?? 0), RETRY_MAX_DELAY_MS);
 };
 
-// Retries non-2xx responses and network errors with exponential backoff, then
-// returns the final Response so callers keep their existing error handling.
+const isRetryableStatus = (status: number) =>
+  status === 408 || status === 429 || status >= 500;
+
+const fetchWithTimeout = async (
+  url: string,
+  init: FetchInit
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LLM_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`LLM request timed out after ${LLM_FETCH_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+// Retries only transient upstream failures. Client errors (4xx except 408/429)
+// fail immediately so a bad key does not pin the classroom process.
 const fetchWithBackoff = async (
   url: string,
   init: FetchInit
@@ -307,8 +328,8 @@ const fetchWithBackoff = async (
 
   for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url, init);
-      if (response.ok || attempt === RETRY_MAX_RETRIES) {
+      const response = await fetchWithTimeout(url, init);
+      if (response.ok || !isRetryableStatus(response.status) || attempt === RETRY_MAX_RETRIES) {
         return response;
       }
 
@@ -360,11 +381,8 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   const payload: Record<string, unknown> = {
     messages: messages.map(normalizeMessage),
+    model: model || ENV.deepseekModel || "deepseek-chat",
   };
-
-  if (model) {
-    payload.model = model;
-  }
 
   if (tools && tools.length > 0) {
     payload.tools = tools;
@@ -405,7 +423,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${ENV.deepseekApiKey}`,
     },
     body: JSON.stringify(payload),
   });
@@ -435,12 +453,11 @@ export type ModelsResponse = {
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`
-    : "https://forge.manus.im/v1/models";
+  const base = ENV.deepseekApiUrl.replace(/\/$/, "") || "https://api.deepseek.com";
+  const url = `${base}/v1/models`;
 
   const response = await fetchWithBackoff(url, {
-    headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
+    headers: { authorization: `Bearer ${ENV.deepseekApiKey}` },
   });
 
   if (!response.ok) {
