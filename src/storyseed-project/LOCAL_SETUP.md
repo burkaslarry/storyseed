@@ -47,7 +47,7 @@ pnpm dev
 
 在瀏覽器開啟：<http://localhost:3000/>
 
-這個模式可以查看示範工作區及主要介面，但正式登入及跨裝置保存不會完整運作。課堂試行版已關閉 AI coach。
+這個模式可以查看示範工作區及主要介面，但正式登入及跨裝置保存不會完整運作。
 
 ### 完整使用所需設定
 
@@ -56,8 +56,7 @@ pnpm dev
 - `DATABASE_URL`：PostgreSQL（Render）連接字串
 - `JWT_SECRET`：至少 32 個字符的本機 session secret
 - `PGSSL=true`、`PGSSLMODE=require`（連線 Render 時）
-
-唔需要設定 `BUILT_IN_FORGE_API_URL`／`BUILT_IN_FORGE_API_KEY`（AI 已關閉）。
+- `DEEPSEEK_API_KEY`：啟用課程「問 AI」（唔用 Forge）
 
 **不要把 `.env`、API key、資料庫密碼上載到 GitHub 或傳給學生。**
 

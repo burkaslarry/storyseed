@@ -25,7 +25,16 @@ Hostinger currently invokes `pnpm run build` for Express. The default build also
 
 Set in hPanel: NODE_ENV=production, the existing Render External PostgreSQL DATABASE_URL, PGSSL=true, PGSSLMODE=require and JWT_SECRET.
 
-**Do not set** `BUILT_IN_FORGE_API_URL` / `BUILT_IN_FORGE_API_KEY` for the classroom trial — AI coach is disabled and the app does not need them.
+Writing coach uses **DeepSeek only** (not Forge):
+
+| Variable | Effect |
+| --- | --- |
+| `DEEPSEEK_API_KEY` | Required for 問 AI / writingCoach |
+| `DEEPSEEK_API_URL` | Optional; default `https://api.deepseek.com` |
+| `DEEPSEEK_MODEL` | Optional; default `deepseek-chat` |
+| `COACH_GLOBAL_MAX` | Optional; default `6` simultaneous AI calls |
+
+Do **not** set `BUILT_IN_FORGE_API_URL` / `BUILT_IN_FORGE_API_KEY` for the coach.
 
 Classroom-safe PDF flag (defaults **on** when unset):
 
@@ -38,9 +47,10 @@ In Hostinger hPanel → Node.js app → Environment variables, set:
 
 ```text
 BLOCK_ANTHOLOGY_PDF=true
+DEEPSEEK_API_KEY=<your DeepSeek key>
 ```
 
-(or leave unset after this release — code defaults to blocked).
+(or leave `BLOCK_ANTHOLOGY_PDF` unset after this release — code defaults to blocked).
 
 Continue using Render DB dpg-d6iok5q4d50c738643c0-a. The handover's MySQL/OAuth descriptions refer to an older app; keep current Postgres and email/password login. Keep secrets out of Git and deployment archives. Hostinger deployment does not require changing the existing Vercel project or its domains.
 

@@ -52,7 +52,7 @@ React 19 + Vite → Express／tRPC API → Drizzle + `pg` → Render PostgreSQL�
 | `DATABASE_URL` | Render External PostgreSQL URL |
 | `PGSSL=true`、`PGSSLMODE=require` | PostgreSQL SSL 連線 |
 | `JWT_SECRET` | 教師／學生／管理員登入 session 簽署 |
-| ~~`BUILT_IN_FORGE_API_URL`、`BUILT_IN_FORGE_API_KEY`~~ | **課堂試行唔需要**；AI coach 已關閉 |
+| `DEEPSEEK_API_KEY`（可選 `DEEPSEEK_API_URL`／`DEEPSEEK_MODEL`） | 課程「問 AI」／writingCoach（唔用 Forge） |
 | `VITE_APP_ID`、`OAUTH_SERVER_URL` | 保留的 OAuth 整合；Email／密碼登入不經 OAuth |
 | `OWNER_OPEN_ID` | 保留的擁有者角色設定 |
 

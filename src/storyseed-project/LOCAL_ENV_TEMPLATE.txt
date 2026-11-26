@@ -8,7 +8,8 @@ JWT_SECRET=replace-with-a-long-random-local-secret
 DATABASE_URL=mysql://user:password@127.0.0.1:3306/storyseed
 OAUTH_SERVER_URL=
 OWNER_OPEN_ID=
-BUILT_IN_FORGE_API_URL=
-BUILT_IN_FORGE_API_KEY=
+DEEPSEEK_API_KEY=
+DEEPSEEK_API_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
 
 Do not commit .env or share API keys and database passwords.

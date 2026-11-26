@@ -9,7 +9,7 @@
  *   teaching          teacher comments on a writing
  *   anthology         select, list, content export, PDF export
  *   accounts          CSV import, student login, first-code change
- *   writingCoach      disabled — classroom trial does not use LLM / Forge
+ *   writingCoach      DeepSeek writing coach (ask / suggest / improve)
  *
  * UNFINISHED:
  * - No procedure creates a class. Bulk import fails until a class row exists.
@@ -21,7 +21,6 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
-import { ENV } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
@@ -38,12 +37,17 @@ import { assertRateLimit, clientIp, rateLimitKey } from "./security/rateLimit";
 import { withSlot } from "./security/concurrency";
 import { assertWritingStudentWrite } from "./security/writingAccess";
 import { sanitizeStudentText } from "./sanitize";
+import { invokeLLM } from "./_core/llm";
 
+/** Max simultaneous LLM calls on the single classroom Node process. */
+const COACH_GLOBAL_MAX = Number(process.env.COACH_GLOBAL_MAX ?? 6);
 const PDF_GLOBAL_MAX = 1;
 const DB_UNAVAILABLE_MSG = "系統暫時未能連接資料庫，請稍後再試。";
+const COACH_BUSY_MSG = "AI 助教現正繁忙，請稍後再試（課堂請分批提問，勿全班同時按）。";
 const PDF_BUSY_MSG = "文集 PDF 正在匯出中，請稍後再試。課堂進行期間建議課後再匯出。";
 const PDF_BLOCKED_MSG = "課堂安全模式已暫停文集 PDF 匯出。請課後再試，或在 Hostinger 將 BLOCK_ANTHOLOGY_PDF 設為 false。";
-const AI_DISABLED_MSG = "AI 功能已關閉。本課堂版本唔需要 BUILT_IN_FORGE_API_URL／BUILT_IN_FORGE_API_KEY。";
+const supportMode = z.enum(["idea", "language", "structure", "proofread"]);
+const safeWritingRules = `You are StorySeed, a supportive AI writing coach for Hong Kong primary students in P5/P6. You must never write a complete story, paragraph, essay, poem, dialogue scene, or replacement draft for the student. You may ask guiding questions, offer up to five vocabulary choices with short explanations, point out one or two structural observations, or identify proofreading issues without rewriting the whole text. Always preserve the student's original voice and remind them to make the final choices. Never ask for or infer the student's real name, phone number, email, address, school ID, family information, or other sensitive personal data. If the student asks you to write the whole piece, politely refuse and offer a small next step instead.`;
 
 /**
  * Classroom-safe default: PDF export is blocked unless explicitly re-enabled.
@@ -306,15 +310,36 @@ export const appRouter = router({
       }),
   }),
   /*
-   * AI / Forge coach is intentionally off for the school classroom trial.
-   * Procedures remain so old clients get a clear message instead of a missing-route error.
-   * No BUILT_IN_FORGE_API_URL / BUILT_IN_FORGE_API_KEY is required to run the app.
+   * DeepSeek writing coach (DEEPSEEK_API_KEY). Does not use BUILT_IN_FORGE_*.
    */
   writingCoach: router({
     improve: protectedProcedure
       .input(z.object({ plan: z.string().min(1).max(3000), level: z.enum(["P5", "P6"]), lang: z.enum(["zh", "en"]) }))
-      .mutation(async () => {
-        throw new TRPCError({ code: "FORBIDDEN", message: AI_DISABLED_MSG });
+      .mutation(async ({ ctx, input }) => {
+        await requireRole(ctx, ["student", "teacher", "tutor", "admin"]);
+        assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000);
+        return withSlot("writingCoach", COACH_GLOBAL_MAX, COACH_BUSY_MSG, async () => {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content:
+                  safeWritingRules +
+                  `\nGive exactly three short planning choices and one observation for ${input.level}. Each choice is a guiding question or a direction, not a story paragraph. Respond in ${input.lang === "zh" ? "Traditional Chinese" : "simple English"}. Return JSON only with shape {"alternatives":[{"title":"...","direction":"..."},{"title":"...","direction":"..."},{"title":"...","direction":"..."}],"observation":"..."}.`,
+              },
+              { role: "user", content: sanitizeStudentText(input.plan) },
+            ],
+            response_format: { type: "json_object" },
+          });
+          const content = response.choices?.[0]?.message?.content;
+          if (typeof content !== "string") throw new Error("AI planning response unavailable");
+          return z
+            .object({
+              alternatives: z.array(z.object({ title: z.string().max(120), direction: z.string().max(500) })).length(3),
+              observation: z.string().max(600),
+            })
+            .parse(JSON.parse(content));
+        });
       }),
     evaluate: protectedProcedure
       .input(z.object({ draft: z.string().max(6000), level: z.enum(["P5", "P6"]) }))
@@ -322,14 +347,62 @@ export const appRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "評分已改由教師人手完成，請提交作品等待教師評分。" });
       }),
     suggest: protectedProcedure
-      .input(z.object({ mode: z.enum(["idea", "language", "structure", "proofread"]), draft: z.string().max(6000), level: z.enum(["P5", "P6"]) }))
-      .mutation(async () => {
-        throw new TRPCError({ code: "FORBIDDEN", message: AI_DISABLED_MSG });
+      .input(z.object({ mode: supportMode, draft: z.string().max(6000), level: z.enum(["P5", "P6"]) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireRole(ctx, ["student", "teacher", "tutor", "admin"]);
+        assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000);
+        return withSlot("writingCoach", COACH_GLOBAL_MAX, COACH_BUSY_MSG, async () => {
+          const modeInstruction = {
+            idea: "Give two or three guiding questions that help the student develop the next story idea. Do not provide plot paragraphs.",
+            language: "Give up to five age-appropriate vocabulary options and explain when each may fit. Do not rewrite the student's sentences.",
+            structure: "Point out one strength and ask two questions about beginning, problem, turning point, or ending. Do not create a plot for the student.",
+            proofread: "Identify up to three proofreading areas to check, quoting only very short fragments if necessary. Explain the rule and let the student revise it themselves.",
+          }[input.mode];
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${safeWritingRules}\n\nTask: ${modeInstruction}\nUse clear, encouraging language suitable for ${input.level}. Respond in Traditional Chinese, with English examples only when useful.`,
+              },
+              {
+                role: "user",
+                content: `Here is the student's draft. Treat it as private writing content and do not request identifying details:\n\n${sanitizeStudentText(input.draft)}`,
+              },
+            ],
+          });
+          const content = response.choices?.[0]?.message?.content;
+          return { suggestion: typeof content === "string" ? content : "請先寫下你想保留的句子，再選一個小地方修改。" };
+        });
       }),
     ask: protectedProcedure
       .input(z.object({ question: z.string().min(1).max(1000), level: z.enum(["P5", "P6"]), lang: z.enum(["zh", "en"]) }))
-      .mutation(async () => {
-        throw new TRPCError({ code: "FORBIDDEN", message: AI_DISABLED_MSG });
+      .mutation(async ({ ctx, input }) => {
+        await requireRole(ctx, ["student", "teacher", "tutor", "admin"]);
+        assertRateLimit(rateLimitKey(String(ctx.user.id), "coach"), 40, 60 * 60 * 1000);
+        return withSlot("writingCoach", COACH_GLOBAL_MAX, COACH_BUSY_MSG, async () => {
+          const languageRule =
+            input.lang === "zh"
+              ? "Respond in Traditional Chinese, with English examples only when useful."
+              : "Respond in clear, simple English suitable for primary students.";
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${safeWritingRules}\n\nYou are answering one short question from a student about their own creative writing. Never write a complete story, paragraph, poem, essay or dialogue scene for them. In a few short sentences: ask one guiding question, offer 1-3 concrete directions or choices, and remind them the final sentences are theirs. ${languageRule} Suitable for ${input.level}.`,
+              },
+              { role: "user", content: `Student's question:\n${sanitizeStudentText(input.question)}` },
+            ],
+          });
+          const content = response.choices?.[0]?.message?.content;
+          return {
+            answer:
+              typeof content === "string"
+                ? content
+                : input.lang === "zh"
+                  ? "請再講清楚少少你想問嘅部分，我會用問題引導你繼續。"
+                  : "Please tell me a little more about what you want to ask, and I will guide you with questions.",
+          };
+        });
       }),
   }),
 });
