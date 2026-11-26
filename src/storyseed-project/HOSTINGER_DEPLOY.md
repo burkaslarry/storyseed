@@ -36,6 +36,14 @@ Writing coach uses **DeepSeek only** (not Forge):
 
 Do **not** set `BUILT_IN_FORGE_API_URL` / `BUILT_IN_FORGE_API_KEY` for the coach.
 
+Computer-lab sessions (shared PC room):
+
+| Variable | Effect |
+| --- | --- |
+| `SESSION_EPOCH` | Optional. Bump (e.g. `2026-11-26-pm`) to invalidate every existing login cookie so the next class must sign in fresh. Default in code is `2026-11-26-lab`. |
+
+Sessions last **4 hours**. After a login drill, teachers can call `auth.clearLabRateLimits` (while logged in) to free in-memory login attempt budgets; a Hostinger redeploy also clears those budgets.
+
 Classroom-safe PDF flag (defaults **on** when unset):
 
 | Variable | Effect |

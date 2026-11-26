@@ -41,6 +41,16 @@ export function assertRateLimit(key: string, max: number, windowMs: number) {
   }
 }
 
+/** Clear one bucket after a successful login so probes / typos do not burn the afternoon class. */
+export function resetRateLimit(key: string) {
+  buckets.delete(key);
+}
+
+/** Wipe all in-memory login/AI buckets (used after lab drills or process warm starts). */
+export function clearAllRateLimits() {
+  buckets.clear();
+}
+
 export function clientIp(req: { headers: Record<string, unknown>; ip?: string }) {
   const forwarded = req.headers["x-forwarded-for"];
   if (typeof forwarded === "string" && forwarded.length > 0) {

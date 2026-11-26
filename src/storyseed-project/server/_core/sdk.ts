@@ -191,6 +191,7 @@ class SDKServer {
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
+      ...(ENV.sessionEpoch ? { epoch: ENV.sessionEpoch } : {}),
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
@@ -210,7 +211,7 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { openId, appId, name, epoch } = payload as Record<string, unknown>;
 
       if (
         !isNonEmptyString(openId) ||
@@ -218,6 +219,12 @@ class SDKServer {
         !isNonEmptyString(name)
       ) {
         console.warn("[Auth] Session payload missing required fields");
+        return null;
+      }
+
+      // Shared computer-lab PCs: bump SESSION_EPOCH to drop every leftover login.
+      if (ENV.sessionEpoch && epoch !== ENV.sessionEpoch) {
+        console.warn("[Auth] Session epoch mismatch — treat as logged out");
         return null;
       }
 

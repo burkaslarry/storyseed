@@ -1,7 +1,7 @@
 export const COOKIE_NAME = "app_session_id";
-// School accounts re-authenticate every lesson day; a lost token should not
-// stay valid for a year.
-export const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+// Computer-lab classes share PCs across morning/afternoon. Keep sessions short
+// so a leftover login does not hand the next class another student's account.
+export const SESSION_TTL_MS = 1000 * 60 * 60 * 4;
 export const AXIOS_TIMEOUT_MS = 30_000;
 export const UNAUTHED_ERR_MSG = 'Please login (10001)';
 export const NOT_ADMIN_ERR_MSG = 'You do not have required permission (10002)';
