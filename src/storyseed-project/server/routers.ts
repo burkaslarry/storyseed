@@ -33,7 +33,7 @@ import { normalizeEvaluation, parseEvaluationContent } from "./writingEvaluation
 import { createManageRouter } from "./manageRouter";
 import { createWritingRouters } from "./writingRouters";
 import { assertTeacherClassAccess } from "./security/classAccess";
-import { assertRateLimit, clientIp, rateLimitKey } from "./security/rateLimit";
+import { assertRateLimit, clientIp, clearAllRateLimits, rateLimitKey, resetRateLimit } from "./security/rateLimit";
 import { withSlot } from "./security/concurrency";
 import { assertWritingStudentWrite } from "./security/writingAccess";
 import { sanitizeStudentText } from "./sanitize";
@@ -102,6 +102,12 @@ export const appRouter = router({
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
+    }),
+    /** Computer-lab helper: drop in-memory login rate-limit buckets after a drill. */
+    clearLabRateLimits: protectedProcedure.mutation(async ({ ctx }) => {
+      await requireRole(ctx, ["teacher", "tutor", "admin"]);
+      clearAllRateLimits();
+      return { success: true as const };
     }),
   }),
   curriculum: router({
@@ -173,8 +179,10 @@ export const appRouter = router({
          */
         await assertDatabaseReady();
         const email = normalizeTeacherEmail(input.email);
-        assertRateLimit(rateLimitKey(`teacher:${email}`, "teacherLogin"), 10, 15 * 60 * 1000);
-        assertRateLimit(rateLimitKey(clientIp(ctx.req), "teacherLoginIp"), 100, 15 * 60 * 1000);
+        const teacherKey = rateLimitKey(`teacher:${email}`, "teacherLogin");
+        const teacherIpKey = rateLimitKey(clientIp(ctx.req), "teacherLoginIp");
+        assertRateLimit(teacherKey, 10, 15 * 60 * 1000);
+        assertRateLimit(teacherIpKey, 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
         if (!user) {
           // Distinguish "DB returned nothing because pool is dead" from bad credentials.
@@ -191,6 +199,8 @@ export const appRouter = router({
         if (!['teacher', 'tutor'].includes(user.role)) {
           throw new Error('此帳戶不是教師權限。');
         }
+        resetRateLimit(teacherKey);
+        resetRateLimit(teacherIpKey);
         await setSessionCookie(ctx.req, ctx.res, { openId: user.openId, name: user.name ?? 'Teacher' });
         return { success: true as const };
       }),
@@ -199,8 +209,10 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await assertDatabaseReady();
         const email = normalizeTeacherEmail(input.email);
-        assertRateLimit(rateLimitKey(`admin:${email}`, "adminLogin"), 10, 15 * 60 * 1000);
-        assertRateLimit(rateLimitKey(clientIp(ctx.req), "adminLoginIp"), 100, 15 * 60 * 1000);
+        const adminKey = rateLimitKey(`admin:${email}`, "adminLogin");
+        const adminIpKey = rateLimitKey(clientIp(ctx.req), "adminLoginIp");
+        assertRateLimit(adminKey, 10, 15 * 60 * 1000);
+        assertRateLimit(adminIpKey, 100, 15 * 60 * 1000);
         const user = await getUserByEmail(email);
         if (!user) {
           const { getDb } = await import("./db");
@@ -213,6 +225,8 @@ export const appRouter = router({
         if (user.role !== 'admin') {
           throw new Error('此帳戶不是管理員權限。');
         }
+        resetRateLimit(adminKey);
+        resetRateLimit(adminIpKey);
         await setSessionCookie(ctx.req, ctx.res, { openId: user.openId, name: user.name ?? 'Admin' });
         return { success: true as const };
       }),
@@ -226,8 +240,10 @@ export const appRouter = router({
        */
       await assertDatabaseReady();
       const username = input.username.trim().toLowerCase();
-      assertRateLimit(rateLimitKey(`student:${username}`, "studentLogin"), 20, 15 * 60 * 1000);
-      assertRateLimit(rateLimitKey(clientIp(ctx.req), "studentLoginIp"), 600, 15 * 60 * 1000);
+      const studentKey = rateLimitKey(`student:${username}`, "studentLogin");
+      const studentIpKey = rateLimitKey(clientIp(ctx.req), "studentLoginIp");
+      assertRateLimit(studentKey, 20, 15 * 60 * 1000);
+      assertRateLimit(studentIpKey, 600, 15 * 60 * 1000);
       const { getDb, getStudentAccountByUsername: getAccount, createOrGetStudentUser } = await import("./db");
       if (!(await getDb())) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DB_UNAVAILABLE_MSG });
       const account = await getAccount(username);
@@ -236,6 +252,9 @@ export const appRouter = router({
       if (!user) throw new Error('無法建立學生帳戶。');
       const member = await getClassMember(user.id);
       if (!member) await bindClassMember({ classId: account.classId, userId: user.id, schoolCode: account.schoolCode, role: 'student' });
+      // Successful lab login frees the attempt budget for the next period / shared PC.
+      resetRateLimit(studentKey);
+      resetRateLimit(studentIpKey);
       await setSessionCookie(ctx.req, ctx.res, { openId: user.openId, name: `Student ${account.schoolCode}` });
       return { success: true, mustChangeCode: Boolean(account.mustChangeCode) };
     }),

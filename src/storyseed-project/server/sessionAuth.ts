@@ -23,6 +23,7 @@ export async function setSessionCookie(
   });
   res.cookie(COOKIE_NAME, token, {
     ...getSessionCookieOptions(req),
-    maxAge: 1000 * 60 * 60 * 12,
+    // Match JWT TTL so shared lab browsers drop morning sessions before afternoon.
+    maxAge: 1000 * 60 * 60 * 4,
   });
 }

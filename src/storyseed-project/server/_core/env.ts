@@ -13,6 +13,11 @@ export const ENV = {
   deepseekApiUrl: (process.env.DEEPSEEK_API_URL ?? "https://api.deepseek.com").trim(),
   deepseekApiKey: (process.env.DEEPSEEK_API_KEY ?? "").trim(),
   deepseekModel: (process.env.DEEPSEEK_MODEL ?? "deepseek-chat").trim() || "deepseek-chat",
+  /**
+   * Bump on Hostinger (or change the default) to invalidate every lab JWT on
+   * shared computer-room PCs. Empty disables the check.
+   */
+  sessionEpoch: (process.env.SESSION_EPOCH ?? "2026-11-26-lab").trim(),
   /** Leftover Manus helpers only — not used by writingCoach. */
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",

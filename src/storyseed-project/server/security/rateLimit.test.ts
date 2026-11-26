@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TRPCError } from "@trpc/server";
-import { assertRateLimit, rateLimitKey } from "./rateLimit";
+import { assertRateLimit, clearAllRateLimits, rateLimitKey, resetRateLimit } from "./rateLimit";
 
 function catchError(run: () => void) {
   try {
@@ -14,6 +14,7 @@ function catchError(run: () => void) {
 describe("assertRateLimit", () => {
   afterEach(() => {
     vi.useRealTimers();
+    clearAllRateLimits();
   });
 
   it("blocks the 21st attempt and throws TOO_MANY_REQUESTS", () => {
@@ -50,5 +51,13 @@ describe("assertRateLimit", () => {
     expect(catchError(() => assertRateLimit(key, 20, 60_000))).toBeInstanceOf(TRPCError);
     vi.setSystemTime(new Date("2026-11-19T08:02:00Z"));
     expect(() => assertRateLimit(key, 20, 60_000)).not.toThrow();
+  });
+
+  it("clears a bucket after successful login so the afternoon class is not blocked", () => {
+    const key = rateLimitKey("student:w22010", "studentLogin");
+    for (let attempt = 0; attempt < 20; attempt += 1) assertRateLimit(key, 20, 15 * 60_000);
+    expect(catchError(() => assertRateLimit(key, 20, 15 * 60_000))).toBeInstanceOf(TRPCError);
+    resetRateLimit(key);
+    expect(() => assertRateLimit(key, 20, 15 * 60_000)).not.toThrow();
   });
 });
